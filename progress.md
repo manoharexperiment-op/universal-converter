@@ -6,14 +6,14 @@
 
 ## Current status
 
-**Phase:** Offline OCR + richer encode progress added; verified & pushed.
+**Phase:** Installable PWA (works offline); OCR assets trimmed. Verified & pushed.
 **Last updated:** 2026-06-25
 
 The app is a **100% client-side** file converter (Vite + React + TypeScript).
-No backend, no uploads, no login. Deployed on Vercel. OCR is now **fully
-self-hosted** (no third-party CDN), and long media encodes show a live
-"Processing… HH:MM:SS" status. All earlier features (compress, GIF, MP4↔WebM,
-trim/merge, bitrate, Cancel) remain — everything verified in-browser.
+No backend, no uploads, no login. Deployed on Vercel. It is now an **installable
+PWA that works offline after the first visit** (service worker precaches the app
+shell + all converter code; OCR/ffmpeg assets cache on first use). OCR is fully
+self-hosted and trimmed to ~20 MB. Everything verified in-browser.
 
 Repo (public): https://github.com/manoharexperiment-op/universal-converter
 (If Vercel is connected to the repo, the latest push auto-deploys.)
@@ -83,7 +83,24 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
-### 2026-06-25 (latest) — Offline OCR + richer encode progress
+### 2026-06-25 (latest) — PWA (offline) + trimmed OCR assets
+- **Trimmed OCR assets 40 MB → 20 MB:** dropped the non-SIMD cores (all modern
+  browsers have WASM SIMD) and the redundant separate `.wasm` binaries (the
+  `.wasm.js` embeds the wasm as base64). OCR re-verified working after the trim.
+- **Installable PWA / offline support** via `vite-plugin-pwa` (Workbox):
+  - Precaches the app shell + all converter chunks **+ the pdf.js `.mjs` worker**
+    (~4.4 MB) so the app works offline after the first visit. (Caught that the
+    default glob missed `.mjs` — PDF would've broken offline; added `mjs`/`wasm`.)
+  - **Runtime-caches** the big self-hosted Tesseract assets (`/tesseract/`) and
+    the ffmpeg CDN core (`unpkg.com/@ffmpeg/core`) on first use — kept out of
+    precache so the install stays small.
+  - Added a web manifest + SVG app icon (`public/icon.svg`) + theme color →
+    installable to home screen / desktop.
+  - **Verified** in a production `vite preview`: service worker active &
+    controlling the page, 23 precache entries incl. the pdf worker, tesseract
+    correctly excluded, manifest linked.
+
+### 2026-06-25 — Offline OCR + richer encode progress
 - **Self-hosted OCR:** vendored the Tesseract worker + all core wasm variants and
   the English traineddata into `public/tesseract/` (~40 MB). `imageToText` now
   points `workerPath`/`corePath`/`langPath` at our own origin (absolute URLs — a
@@ -206,7 +223,11 @@ server). The earlier PDF→image stall is resolved.
 - [x] **Cancel button** for long video encodes (done + verified).
 - [ ] **Confirm the live site updated** after this push (if Vercel auto-deploy is
       connected; otherwise trigger a redeploy).
-- [x] Self-host Tesseract for full offline OCR (done + verified, ~40 MB assets).
+- [x] Self-host Tesseract for full offline OCR (done + verified).
 - [x] Richer progress for long encodes (live `time=` status — done + verified).
-- [ ] (Optional) Trim the ~40 MB OCR assets (drop non-SIMD cores / use tessdata_fast).
-- [ ] (Optional) PWA/service-worker so the whole app works offline after first visit.
+- [x] Trim the OCR assets (40 MB → 20 MB; done + verified).
+- [x] PWA/service-worker — app works offline after first visit (done + verified).
+- [ ] (Optional) Generate PNG app icons (some app stores/older Android prefer PNG
+      over the current SVG icon for install).
+- [ ] (Optional) Further trim: switch to `tessdata_fast` eng (~2 MB, lower OCR
+      accuracy) if the 11 MB language file matters.
