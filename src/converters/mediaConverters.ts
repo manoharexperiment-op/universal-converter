@@ -37,6 +37,22 @@ export function preloadFFmpeg() {
   return getFFmpeg();
 }
 
+/**
+ * Stop any in-flight ffmpeg job by killing the worker. The pending exec rejects,
+ * and the core is reset so the next conversion reloads a fresh instance.
+ */
+export async function terminateFFmpeg() {
+  if (!ffmpegPromise) return;
+  const pending = ffmpegPromise;
+  ffmpegPromise = null; // next call reloads
+  try {
+    const ffmpeg = await pending;
+    ffmpeg.terminate();
+  } catch {
+    /* already gone */
+  }
+}
+
 function assertSize(file: File, max: number) {
   if (file.size > max) {
     throw new Error(

@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { AUDIO_EXTS, getSourceType, IMAGE_EXTS, REGISTRY } from './converters/registry';
 import type { ConversionResult, ParamControl, ParamValues, ProgressFn } from './converters/types';
 import { defaultsOf } from './converters/types';
 import { mergePdfs, imagesToPdf, mergeAudio } from './converters/batchConverters';
+import { terminateFFmpeg } from './converters/mediaConverters';
 import { downloadBlob } from './lib/download';
 import './App.css';
 
@@ -32,6 +33,8 @@ interface Action {
   note?: string;
   icon: string;
   params?: ParamControl[];
+  /** ffmpeg-backed (video/audio) — can be cancelled mid-run. */
+  media?: boolean;
   run: (onProgress?: ProgressFn, params?: ParamValues) => Promise<ConversionResult>;
 }
 
@@ -103,6 +106,7 @@ export default function App() {
   const [progress, setProgress] = useState(0); // 0..1, 0 means "indeterminate"
   const [error, setError] = useState('');
   const [done, setDone] = useState('');
+  const canceledRef = useRef(false);
 
   const reset = () => {
     setFiles([]);
@@ -129,12 +133,14 @@ export default function App() {
       const file = files[0];
       const type = getSourceType(file.name);
       if (!type) return [];
+      const media = type === 'video' || type === 'audio';
       return (REGISTRY[type] ?? []).map((opt) => ({
         key: `${opt.target}:${opt.label}`,
         label: opt.label,
         note: opt.note,
         icon: ICONS[opt.target] ?? '📁',
         params: opt.params,
+        media,
         run: (p?: ProgressFn, pv?: ParamValues) => opt.run(file, p, pv),
       }));
     }
@@ -147,7 +153,7 @@ export default function App() {
         return [{ key: 'images-pdf', label: 'Combine into PDF', note: 'One image per page', icon: '📄', run: (p?: ProgressFn) => imagesToPdf(files, p) }];
       }
       if (exts.every((e) => AUDIO_EXTS.includes(e))) {
-        return [{ key: 'merge-audio', label: 'Merge audio', note: 'Join into one MP3, in order', icon: '🎵', run: (p?: ProgressFn) => mergeAudio(files, p) }];
+        return [{ key: 'merge-audio', label: 'Merge audio', note: 'Join into one MP3, in order', icon: '🎵', media: true, run: (p?: ProgressFn) => mergeAudio(files, p) }];
       }
       return [];
     }
@@ -164,6 +170,7 @@ export default function App() {
 
   const convert = async () => {
     if (!selected) return;
+    canceledRef.current = false;
     setBusy(true);
     setError('');
     setDone('');
@@ -173,12 +180,21 @@ export default function App() {
       downloadBlob(result.blob, result.filename);
       setDone(result.note ?? `Done! Downloaded ${result.filename}`);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Something went wrong.';
-      setError(`Conversion failed: ${msg}`);
+      if (canceledRef.current) {
+        setError('Canceled.');
+      } else {
+        const msg = e instanceof Error ? e.message : 'Something went wrong.';
+        setError(`Conversion failed: ${msg}`);
+      }
     } finally {
       setBusy(false);
       setProgress(0);
     }
+  };
+
+  const cancel = () => {
+    canceledRef.current = true;
+    void terminateFFmpeg();
   };
 
   const pct = Math.round(progress * 100);
@@ -259,13 +275,18 @@ export default function App() {
         )}
 
         {selected && (
-          <button className="convert-btn" onClick={convert} disabled={busy}>
-            {busy ? (
-              <><span className="spinner" /> Working{progress > 0 ? ` ${pct}%` : '…'}</>
-            ) : (
-              <>🔄 {selected.label}</>
+          <div className="action-row">
+            <button className="convert-btn" onClick={convert} disabled={busy}>
+              {busy ? (
+                <><span className="spinner" /> Working{progress > 0 ? ` ${pct}%` : '…'}</>
+              ) : (
+                <>🔄 {selected.label}</>
+              )}
+            </button>
+            {busy && selected.media && (
+              <button className="cancel-btn" onClick={cancel}>Cancel</button>
             )}
-          </button>
+          </div>
         )}
 
         {busy && (

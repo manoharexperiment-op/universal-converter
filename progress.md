@@ -6,15 +6,16 @@
 
 ## Current status
 
-**Phase:** Full feature set built, verified, committed & pushed.
+**Phase:** Full feature set + Cancel button; repo public; verified & pushed.
 **Last updated:** 2026-06-25
 
 The app is a **100% client-side** file converter (Vite + React + TypeScript).
-No backend, no uploads, no login. Deployed on Vercel. Now includes a parameter-UI
-and a large feature batch: **image compress, PDF compress, video→GIF, MP4↔WebM,
-video compress, audio trim/merge, and bitrate control** — all verified in-browser.
+No backend, no uploads, no login. Deployed on Vercel. Includes a parameter-UI,
+the full feature batch (**image/PDF compress, video→GIF, MP4↔WebM, video
+compress, audio trim/merge, bitrate**), and a **Cancel** button for long video
+encodes — all verified in-browser.
 
-Repo: https://github.com/manoharexperiment-op/universal-converter (private)
+Repo (now **public**): https://github.com/manoharexperiment-op/universal-converter
 (If Vercel is connected to the repo, the latest push auto-deploys.)
 
 ---
@@ -82,7 +83,15 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
-### 2026-06-25 (latest) — Compression + media tools + parameter UI
+### 2026-06-25 (latest) — Repo public + Cancel button
+- **Made the GitHub repo public.**
+- **Cancel button** for long video/audio encodes: `terminateFFmpeg()` kills the
+  worker and resets the core singleton (next run reloads fresh). Shown only for
+  ffmpeg-backed (media) actions while busy; the canceled job shows "Canceled."
+  Verified in-browser — a mid-flight transcode canceled at ~700 ms rejected with
+  "called FFmpeg.terminate()" and the core reset to a new instance.
+
+### 2026-06-25 — Compression + media tools + parameter UI
 - **Parameter-UI system:** added a declarative `ParamControl` schema
   (select/number/range) + optional `params[]` and a 3rd `params` arg to
   `run()` — fully backward compatible, existing converters untouched.
@@ -178,9 +187,9 @@ server). The earlier PDF→image stall is resolved.
       so OCR still works.
 - [x] **Compression** (image + PDF) and **media tools** (GIF, MP4↔WebM, trim,
       merge, bitrate) + parameter UI — done + verified.
+- [x] Made the GitHub repo **public**.
+- [x] **Cancel button** for long video encodes (done + verified).
 - [ ] **Confirm the live site updated** after this push (if Vercel auto-deploy is
       connected; otherwise trigger a redeploy).
-- [ ] (Optional) Make the GitHub repo **public** if you want it open-source:
-      `gh repo edit manoharexperiment-op/universal-converter --visibility public --accept-visibility-change-consequences`
 - [ ] (Optional) Self-host Tesseract language data for full offline OCR.
-- [ ] (Optional) Add a Cancel button + better progress for long video encodes.
+- [ ] (Optional) Richer progress for long encodes (parse ffmpeg `frame=` logs).

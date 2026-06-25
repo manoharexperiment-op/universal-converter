@@ -184,6 +184,32 @@
   font-size: 0.82rem;
 }
 
+/* Action row (Convert + Cancel) */
+.action-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin-top: 25px;
+}
+.action-row .convert-btn {
+  flex: 1;
+  margin-top: 0;
+}
+.cancel-btn {
+  padding: 0 22px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cancel-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
 /* Convert button */
 .convert-btn {
   display: flex;
