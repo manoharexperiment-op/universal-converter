@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.1",
     "docx": "^9.0.2",
     "jspdf": "^2.5.2",
     "jszip": "^3.10.1",

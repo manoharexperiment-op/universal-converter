@@ -6,14 +6,16 @@
 
 ## Current status
 
-**Phase:** Built & verified locally, incl. PDF tools — ready to deploy.
-**Last updated:** 2026-06-24
+**Phase:** Full feature set built, verified, committed & pushed.
+**Last updated:** 2026-06-25
 
 The app is a **100% client-side** file converter (Vite + React + TypeScript).
-No backend, no uploads, no login. Dependencies installed, production build
-passes, and **every** converter is now verified end-to-end in the browser —
-including PDF→image (the headless-sandbox stall is fixed via `intent:'print'`).
-PDF merge / split / rotate and multi-file mode are added and verified.
+No backend, no uploads, no login. Deployed on Vercel. Now includes a parameter-UI
+and a large feature batch: **image compress, PDF compress, video→GIF, MP4↔WebM,
+video compress, audio trim/merge, and bitrate control** — all verified in-browser.
+
+Repo: https://github.com/manoharexperiment-op/universal-converter (private)
+(If Vercel is connected to the repo, the latest push auto-deploys.)
 
 ---
 
@@ -54,6 +56,15 @@ Legend: ✅ verified end-to-end in browser · ⏸️ works in real browser, not 
 | Markdown | HTML | marked | ✅ (shared marked path) |
 | Text | PDF | jsPDF | ✅ |
 | HTML | PDF | DOMParser + jsPDF | ✅ (shared path verified) |
+| Video (mp4/mov/mkv/webm/…) | MP3 / WAV (extract audio) | ffmpeg.wasm | ✅ |
+| Video | GIF (two-pass palette) | ffmpeg.wasm | ✅ |
+| Video | MP4 (H.264+AAC) / WebM (VP8+Vorbis) | ffmpeg.wasm | ✅ |
+| Video | Compress (re-encode smaller) | ffmpeg.wasm | ✅ |
+| Audio (mp3/wav/m4a/aac/…) | MP3 (bitrate) / WAV | ffmpeg.wasm | ✅ |
+| Audio | Trim (start/end) | ffmpeg.wasm | ✅ |
+| Multiple audio | Merge → one MP3 | ffmpeg.wasm | ✅ |
+| Image | Compress (JPG/WebP, resize) | Canvas | ✅ |
+| PDF | Compress (rasterize, with size guard) | pdf.js + pdf-lib | ✅ |
 
 All conversions verified end-to-end (ran real conversions through the dev
 server). The earlier PDF→image stall is resolved.
@@ -70,6 +81,53 @@ server). The earlier PDF→image stall is resolved.
 ---
 
 ## Changelog
+
+### 2026-06-25 (latest) — Compression + media tools + parameter UI
+- **Parameter-UI system:** added a declarative `ParamControl` schema
+  (select/number/range) + optional `params[]` and a 3rd `params` arg to
+  `run()` — fully backward compatible, existing converters untouched.
+  Controls render under the selected action (`ActionParams` in `App.tsx`).
+- **Image compress** (Canvas, `imageConverters.ts`): JPG/WebP + quality presets +
+  optional resize; "return original if not smaller" guard.
+- **PDF compress** (`pdfConverters.ts`): pdf.js rasterize → JPEG → pdf-lib. Size
+  guard returns the original untouched if it can't beat it by ≥3% (prevents the
+  classic text-PDF bloat). Flatten trade-off disclosed in the UI note.
+- **Video → GIF** (two-pass palettegen/paletteuse), **MP4↔WebM** (correct
+  per-container codecs: VP8+Vorbis for WebM, H.264+AAC for MP4), **video
+  compress** (CRF presets). Hard 200 MB input guard against tab-crash.
+- **Audio trim** (accurate seek), **bitrate control** (select param on MP3),
+  **audio merge** (multi-file → one MP3, normalized concat) wired into the
+  multi-file batch path.
+- **Probed the core first:** confirmed libx264/libvpx(VP8+VP9)/aac/libmp3lame/
+  libvorbis/libopus/gif + palettegen/scale/fps/concat/atrim all present — no
+  encoder fallbacks needed.
+- **Verified in-browser:** image compress (86% smaller), PDF compress (81%) +
+  text-guard (returns original), MP3 bitrate, trim, audio merge, video→GIF,
+  video→MP4, video→WebM. `npm run build` passes.
+
+### 2026-06-25 (later) — Video/Audio conversion
+- **Added video → audio** and audio↔audio via **ffmpeg.wasm** (`mediaConverters.ts`):
+  Video (mp4/mov/mkv/webm/avi/…) → MP3 / WAV; Audio (mp3/wav/m4a/aac/ogg/flac/…)
+  → MP3 / WAV. Uses the **single-threaded** core, so no COOP/COEP headers needed
+  and OCR stays working.
+- **Gotcha fixed:** must load the **ESM** core (`@ffmpeg/core/dist/esm`), not UMD —
+  @ffmpeg/ffmpeg's class worker is a module worker and can't `importScripts` the
+  UMD build ("failed to import ffmpeg-core.js").
+- **Vite:** added targeted `optimizeDeps.exclude` for `@ffmpeg/*` (worker uses
+  `import.meta.url`).
+- **Verified in-browser:** core loads from CDN; WAV→MP3 (libmp3lame) and MP3→WAV
+  both produce valid files; registry surfaces the right options for `.mp4`/`.flac`.
+  `npm run build` passes.
+
+### 2026-06-25 — Deploy setup
+- **Git initialized** (`main` branch), first commit (23 files, `node_modules`
+  excluded).
+- **GitHub repo created & pushed** (private):
+  https://github.com/manoharexperiment-op/universal-converter — via `gh` CLI
+  (account `manoharexperiment-op`).
+- **Vercel deploy pending:** Vercel CLI is not authenticated in this environment;
+  login is an interactive browser flow. Final step left to the user — import the
+  repo at https://vercel.com/new (or `vercel login` then `vercel --prod`).
 
 ### 2026-06-24
 - **Fixed PDF→image stall:** render now uses `intent: 'print'`, which makes
@@ -114,7 +172,15 @@ server). The earlier PDF→image stall is resolved.
 - [x] Confirm **PDF→PNG/JPG** works (fixed via `intent:'print'`, verified).
 - [x] Non-rAF PDF→image render path (done — `intent:'print'`).
 - [x] PDF tools: **merge / split / rotate** (done + verified).
-- [ ] Set up **GitHub repo + Vercel deploy** (needs user's GitHub/Vercel accounts).
-- [ ] (Optional) Add **audio/video** (ffmpeg.wasm) — needs COOP/COEP headers +
-      self-hosted Tesseract assets (see README).
+- [x] **GitHub repo** created & pushed (private).
+- [x] **Vercel deploy** — live.
+- [x] **Audio/video** via ffmpeg.wasm — done WITHOUT COOP/COEP (single-thread core),
+      so OCR still works.
+- [x] **Compression** (image + PDF) and **media tools** (GIF, MP4↔WebM, trim,
+      merge, bitrate) + parameter UI — done + verified.
+- [ ] **Confirm the live site updated** after this push (if Vercel auto-deploy is
+      connected; otherwise trigger a redeploy).
+- [ ] (Optional) Make the GitHub repo **public** if you want it open-source:
+      `gh repo edit manoharexperiment-op/universal-converter --visibility public --accept-visibility-change-consequences`
 - [ ] (Optional) Self-host Tesseract language data for full offline OCR.
+- [ ] (Optional) Add a Cancel button + better progress for long video encodes.

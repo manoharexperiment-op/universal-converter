@@ -1,35 +1,38 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { getSourceType, IMAGE_EXTS, REGISTRY } from './converters/registry';
-import type { ConversionResult, ProgressFn } from './converters/types';
-import { mergePdfs, imagesToPdf } from './converters/batchConverters';
+import { AUDIO_EXTS, getSourceType, IMAGE_EXTS, REGISTRY } from './converters/registry';
+import type { ConversionResult, ParamControl, ParamValues, ProgressFn } from './converters/types';
+import { defaultsOf } from './converters/types';
+import { mergePdfs, imagesToPdf, mergeAudio } from './converters/batchConverters';
 import { downloadBlob } from './lib/download';
 import './App.css';
 
 const ICONS: Record<string, string> = {
   pdf: '📄', docx: '📝', txt: '📃', xlsx: '📊', csv: '📋', zip: '🗜️',
-  png: '🖼️', jpg: '🖼️', jpeg: '🖼️', webp: '🖼️', bmp: '🖼️', gif: '🖼️',
+  png: '🖼️', jpg: '🖼️', jpeg: '🖼️', webp: '🖼️', bmp: '🖼️', gif: '🎞️',
   md: '📑', markdown: '📑', html: '🌐', htm: '🌐',
+  mp4: '🎬', mov: '🎬', mkv: '🎬', webm: '🎬', avi: '🎬', m4v: '🎬', flv: '🎬', wmv: '🎬',
+  mp3: '🎵', wav: '🎵', m4a: '🎵', aac: '🎵', ogg: '🎵', flac: '🎵', opus: '🎵', wma: '🎵',
 };
 
 const SUPPORTED: { from: string; icon: string; to: string }[] = [
-  { from: 'Images', icon: '🖼️', to: 'PNG, JPG, WebP, PDF, Text (OCR)' },
-  { from: 'PDF', icon: '📄', to: 'PNG, JPG, Text, Word, Rotate, Split' },
+  { from: 'Images', icon: '🖼️', to: 'PNG, JPG, WebP, PDF, Compress, OCR' },
+  { from: 'PDF', icon: '📄', to: 'PNG, JPG, Text, Word, Rotate, Split, Compress' },
   { from: 'Word', icon: '📝', to: 'PDF, Text, HTML' },
-  { from: 'Excel', icon: '📊', to: 'CSV' },
-  { from: 'CSV', icon: '📋', to: 'Excel' },
-  { from: 'Markdown', icon: '📑', to: 'PDF, HTML' },
-  { from: 'Text / HTML', icon: '📃', to: 'PDF' },
-  { from: 'Multiple files', icon: '📚', to: 'Merge PDFs · Combine images → PDF' },
+  { from: 'Excel / CSV', icon: '📊', to: 'CSV ↔ Excel' },
+  { from: 'Markdown / HTML / Text', icon: '📑', to: 'PDF, HTML' },
+  { from: 'Video', icon: '🎬', to: 'MP3, WAV, GIF, MP4, WebM, Compress' },
+  { from: 'Audio', icon: '🎵', to: 'MP3, WAV, Trim, Bitrate' },
+  { from: 'Multiple files', icon: '📚', to: 'Merge PDFs · Images → PDF · Merge audio' },
 ];
 
-/** A unified, ready-to-run conversion choice shown as a button. */
 interface Action {
   key: string;
   label: string;
   note?: string;
   icon: string;
-  run: (onProgress?: ProgressFn) => Promise<ConversionResult>;
+  params?: ParamControl[];
+  run: (onProgress?: ProgressFn, params?: ParamValues) => Promise<ConversionResult>;
 }
 
 function extOf(name: string) {
@@ -43,9 +46,59 @@ function formatSize(bytes: number) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${units[i]}`;
 }
 
+/** Controls rendered under a selected action. */
+function ActionParams({
+  params,
+  values,
+  onChange,
+}: {
+  params: ParamControl[];
+  values: ParamValues;
+  onChange: (key: string, value: string | number) => void;
+}) {
+  return (
+    <div className="params">
+      {params.map((c) => {
+        const v = values[c.key] ?? c.default;
+        return (
+          <label className="param-row" key={c.key}>
+            <span className="param-label">{c.label}</span>
+            {c.kind === 'select' ? (
+              <select
+                value={String(v)}
+                onChange={(e) => {
+                  const opt = c.options.find((o) => String(o.value) === e.target.value);
+                  onChange(c.key, opt ? opt.value : e.target.value);
+                }}
+              >
+                {c.options.map((o) => (
+                  <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="param-num">
+                <input
+                  type={c.kind === 'range' ? 'range' : 'number'}
+                  value={Number(v)}
+                  min={c.min}
+                  max={c.max}
+                  step={c.step}
+                  onChange={(e) => onChange(c.key, Number(e.target.value))}
+                />
+                {c.unit && <span className="param-unit">{c.unit}</span>}
+              </span>
+            )}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function App() {
   const [files, setFiles] = useState<File[]>([]);
   const [selected, setSelected] = useState<Action | null>(null);
+  const [paramState, setParamState] = useState<Record<string, ParamValues>>({});
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0); // 0..1, 0 means "indeterminate"
   const [error, setError] = useState('');
@@ -71,7 +124,6 @@ export default function App() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
-  // Build the list of available actions from the current selection of files.
   const actions = useMemo<Action[]>(() => {
     if (files.length === 1) {
       const file = files[0];
@@ -82,21 +134,33 @@ export default function App() {
         label: opt.label,
         note: opt.note,
         icon: ICONS[opt.target] ?? '📁',
-        run: (p?: ProgressFn) => opt.run(file, p),
+        params: opt.params,
+        run: (p?: ProgressFn, pv?: ParamValues) => opt.run(file, p, pv),
       }));
     }
     if (files.length > 1) {
       const exts = files.map((f) => extOf(f.name));
       if (exts.every((e) => e === 'pdf')) {
-        return [{ key: 'merge', label: 'Merge PDFs', note: 'Combine all PDFs into one, in order', icon: '📄', run: (p?: ProgressFn) => mergePdfs(files, p) }];
+        return [{ key: 'merge-pdf', label: 'Merge PDFs', note: 'Combine all PDFs into one, in order', icon: '📄', run: (p?: ProgressFn) => mergePdfs(files, p) }];
       }
       if (exts.every((e) => IMAGE_EXTS.includes(e))) {
         return [{ key: 'images-pdf', label: 'Combine into PDF', note: 'One image per page', icon: '📄', run: (p?: ProgressFn) => imagesToPdf(files, p) }];
+      }
+      if (exts.every((e) => AUDIO_EXTS.includes(e))) {
+        return [{ key: 'merge-audio', label: 'Merge audio', note: 'Join into one MP3, in order', icon: '🎵', run: (p?: ProgressFn) => mergeAudio(files, p) }];
       }
       return [];
     }
     return [];
   }, [files]);
+
+  const paramValues = selected?.params ? paramState[selected.key] ?? defaultsOf(selected.params) : undefined;
+
+  const setParam = (key: string, value: string | number) => {
+    if (!selected) return;
+    const current = paramState[selected.key] ?? defaultsOf(selected.params);
+    setParamState((s) => ({ ...s, [selected.key]: { ...current, [key]: value } }));
+  };
 
   const convert = async () => {
     if (!selected) return;
@@ -105,9 +169,9 @@ export default function App() {
     setDone('');
     setProgress(0);
     try {
-      const result = await selected.run((f) => setProgress(f));
+      const result = await selected.run((f) => setProgress(f), paramValues);
       downloadBlob(result.blob, result.filename);
-      setDone(`Done! Downloaded ${result.filename}`);
+      setDone(result.note ?? `Done! Downloaded ${result.filename}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Something went wrong.';
       setError(`Conversion failed: ${msg}`);
@@ -125,7 +189,7 @@ export default function App() {
     <div className="app">
       <header className="header">
         <h1>🔄 Universal File Converter</h1>
-        <p>Convert PDF, Word, Excel, images &amp; more — free, no login, nothing uploaded.</p>
+        <p>Convert PDF, Word, Excel, images, audio &amp; video — free, no login, nothing uploaded.</p>
       </header>
 
       <main className="main">
@@ -138,7 +202,7 @@ export default function App() {
             <div className="upload-prompt">
               <span className="upload-icon">📁</span>
               <p>Drag &amp; drop a file here</p>
-              <p className="upload-sub">or click to browse · drop several PDFs to merge, or images to combine</p>
+              <p className="upload-sub">or click to browse · drop several PDFs / images / audio to combine</p>
             </div>
           ) : multiple ? (
             <div className="file-info">
@@ -180,13 +244,16 @@ export default function App() {
               ))}
             </div>
             {selected?.note && <p className="note">ⓘ {selected.note}</p>}
+            {selected?.params && paramValues && (
+              <ActionParams params={selected.params} values={paramValues} onChange={setParam} />
+            )}
           </section>
         )}
 
         {unsupported && (
           <div className="message error">
             {multiple
-              ? 'For multiple files, drop all PDFs (to merge) or all images (to combine into a PDF).'
+              ? 'For multiple files, drop all PDFs (merge), all images (combine to PDF), or all audio (merge).'
               : <>Sorry, <strong>.{extOf(files[0].name)}</strong> files aren&apos;t supported yet.</>}
           </div>
         )}

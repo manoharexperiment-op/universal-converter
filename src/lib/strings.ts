@@ -9,6 +9,26 @@ export function replaceExt(name: string, ext: string): string {
   return `${stripExt(name)}.${ext}`;
 }
 
+/** Add a suffix before the extension: ("a.pdf", "-compressed") -> "a-compressed.pdf". */
+export function addSuffix(name: string, suffix: string): string {
+  const i = name.lastIndexOf('.');
+  return i > 0 ? `${name.slice(0, i)}${suffix}${name.slice(i)}` : `${name}${suffix}`;
+}
+
+/** Human-readable byte size: 1536 -> "1.5 KB". */
+export function formatBytes(bytes: number): string {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), units.length - 1);
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${units[i]}`;
+}
+
+/** Percentage reduction from `before` to `after`, rounded: (1000, 700) -> 30. */
+export function pctSmaller(before: number, after: number): number {
+  return Math.round((1 - after / before) * 100);
+}
+
 /** Wrap an HTML body fragment in a minimal, self-contained HTML document. */
 export function wrapHtml(body: string, title = 'Converted Document'): string {
   return `<!doctype html>

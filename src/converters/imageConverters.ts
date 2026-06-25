@@ -1,5 +1,5 @@
-import type { ConversionResult, ProgressFn } from './types';
-import { replaceExt } from '../lib/strings';
+import type { ConversionResult, ParamValues, ProgressFn } from './types';
+import { addSuffix, formatBytes, pctSmaller, replaceExt, stripExt } from '../lib/strings';
 
 const MIME: Record<string, string> = {
   png: 'image/png',
@@ -79,6 +79,67 @@ export async function imageToPdf(file: File): Promise<ConversionResult> {
   return {
     blob: new Blob([bytes], { type: 'application/pdf' }),
     filename: replaceExt(file.name, 'pdf'),
+  };
+}
+
+const IMAGE_PRESETS: Record<string, { quality: number; maxDimension?: number }> = {
+  high: { quality: 0.92 },
+  balanced: { quality: 0.8, maxDimension: 2560 },
+  small: { quality: 0.65, maxDimension: 1920 },
+  tiny: { quality: 0.5, maxDimension: 1280 },
+};
+
+/** Scale (w,h) so the longer edge fits `maxDim`; never upscales. */
+function fitWithin(w: number, h: number, maxDim?: number) {
+  if (!maxDim || Math.max(w, h) <= maxDim) return { w, h };
+  const s = maxDim / Math.max(w, h);
+  return { w: Math.round(w * s), h: Math.round(h * s) };
+}
+
+/**
+ * Compress an image: optionally downscale, then re-encode as JPEG or WebP at a
+ * preset quality. Returns the original untouched if compression wouldn't help.
+ */
+export async function compressImage(
+  file: File,
+  _onProgress?: ProgressFn,
+  params?: ParamValues,
+): Promise<ConversionResult> {
+  const level = String(params?.level ?? 'balanced');
+  const format = String(params?.format ?? 'jpeg');
+  const preset = IMAGE_PRESETS[level] ?? IMAGE_PRESETS.balanced;
+
+  const img = await loadImage(file);
+  const longest = Math.max(img.naturalWidth, img.naturalHeight);
+  const downscaled = !!preset.maxDimension && longest > preset.maxDimension;
+  const { w, h } = fitWithin(img.naturalWidth, img.naturalHeight, preset.maxDimension);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  if (!ctx) throw new Error('Canvas is not available in this browser.');
+  ctx.fillStyle = '#ffffff'; // JPEG/flatten: avoid black transparency
+  ctx.fillRect(0, 0, w, h);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const useWebp = format === 'webp';
+  const blob = await canvasToBlob(canvas, useWebp ? 'image/webp' : 'image/jpeg', preset.quality);
+  const ext = useWebp ? 'webp' : 'jpg';
+
+  // If we didn't downscale and the re-encode isn't smaller, keep the original.
+  if (!downscaled && blob.size >= file.size) {
+    return {
+      blob: file,
+      filename: file.name,
+      note: `Already optimized — kept your original (${formatBytes(file.size)}). Re-compressing wouldn't shrink it.`,
+    };
+  }
+  return {
+    blob,
+    filename: addSuffix(replaceExt(file.name, ext), '-compressed'),
+    note: `Compressed ${formatBytes(file.size)} → ${formatBytes(blob.size)} (${pctSmaller(file.size, blob.size)}% smaller).`,
   };
 }
 

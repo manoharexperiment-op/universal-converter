@@ -136,6 +136,54 @@
   font-size: 0.86rem;
 }
 
+/* Parameter controls */
+.params {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+.param-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+.param-label {
+  color: #b8b8d4;
+}
+.param-row select,
+.param-row input {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  min-width: 130px;
+}
+.param-row select option {
+  background: #24243e;
+  color: #fff;
+}
+.param-row input[type='number'] {
+  width: 110px;
+  min-width: 0;
+}
+.param-num {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.param-unit {
+  color: #8a8aa8;
+  font-size: 0.82rem;
+}
+
 /* Convert button */
 .convert-btn {
   display: flex;

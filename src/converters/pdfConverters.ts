@@ -1,5 +1,5 @@
-import type { ConversionResult, ProgressFn } from './types';
-import { replaceExt, stripExt } from '../lib/strings';
+import type { ConversionResult, ParamValues, ProgressFn } from './types';
+import { addSuffix, formatBytes, pctSmaller, replaceExt, stripExt } from '../lib/strings';
 
 type ImgTarget = 'png' | 'jpg';
 
@@ -101,6 +101,85 @@ export async function pdfToDocx(file: File, onProgress?: ProgressFn): Promise<Co
   const doc = new Document({ sections: [{ children: paragraphs }] });
   const blob = await Packer.toBlob(doc);
   return { blob, filename: replaceExt(file.name, 'docx') };
+}
+
+const PDF_PRESETS: Record<string, { dpi: number; quality: number }> = {
+  light: { dpi: 150, quality: 0.82 },
+  medium: { dpi: 120, quality: 0.72 },
+  strong: { dpi: 96, quality: 0.6 },
+};
+
+/**
+ * Compress a PDF by rasterizing each page to a JPEG at a reduced DPI and
+ * rebuilding the document. Great for scanned/image-heavy PDFs; it FLATTENS
+ * pages to images (text becomes non-selectable). Returns the original untouched
+ * if the result isn't meaningfully smaller (true of most text/vector PDFs).
+ */
+export async function compressPdf(
+  file: File,
+  onProgress?: ProgressFn,
+  params?: ParamValues,
+): Promise<ConversionResult> {
+  const { dpi, quality } = PDF_PRESETS[String(params?.level ?? 'medium')] ?? PDF_PRESETS.medium;
+  const original = new Uint8Array(await file.arrayBuffer());
+
+  const pdfjsLib = (await import('../lib/pdfjs')).default;
+  const { PDFDocument } = await import('pdf-lib');
+
+  let pdf;
+  try {
+    pdf = await pdfjsLib.getDocument({ data: original.slice() }).promise;
+  } catch {
+    throw new Error('Could not read this PDF — it may be password-protected.');
+  }
+
+  const out = await PDFDocument.create();
+  const MAX_DIM = 4096;
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const base = page.getViewport({ scale: 1 }); // points
+    // Clamp so a large-format page can't exceed the canvas size limit.
+    const scale = Math.min(dpi / 72, MAX_DIM / base.width, MAX_DIM / base.height);
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('Canvas is not available in this browser.');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
+
+    const jpgBlob = await new Promise<Blob>((res, rej) =>
+      canvas.toBlob((b) => (b ? res(b) : rej(new Error('Page encode failed.'))), 'image/jpeg', quality),
+    );
+    const jpg = await out.embedJpg(new Uint8Array(await jpgBlob.arrayBuffer()));
+    // Output page keeps the ORIGINAL physical size (points), not pixels.
+    const p = out.addPage([base.width, base.height]);
+    p.drawImage(jpg, { x: 0, y: 0, width: base.width, height: base.height });
+
+    canvas.width = 0; // release the backing store immediately
+    canvas.height = 0;
+    try { await page.cleanup(); } catch { /* non-fatal */ }
+    onProgress?.(i / pdf.numPages);
+  }
+
+  const compressed = await out.save();
+  // Guard: rasterizing a text/vector PDF usually makes it BIGGER. Keep original.
+  if (compressed.byteLength >= original.byteLength * 0.97) {
+    return {
+      blob: file,
+      filename: file.name,
+      note: `Already efficient (mostly text/vector) — kept your original ${formatBytes(original.byteLength)} unchanged. Flattening it would have made it larger.`,
+    };
+  }
+  return {
+    blob: new Blob([compressed], { type: 'application/pdf' }),
+    filename: addSuffix(file.name, '-compressed'),
+    note: `Compressed ${formatBytes(original.byteLength)} → ${formatBytes(compressed.byteLength)} (${pctSmaller(original.byteLength, compressed.byteLength)}% smaller). Pages were flattened to images, so text is no longer selectable.`,
+  };
 }
 
 /** Rotate every page of a PDF clockwise by `deg` degrees (90 / 180 / 270). */
