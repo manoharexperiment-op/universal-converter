@@ -83,6 +83,22 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-06-25 — Android app (Capacitor)
+- **Added Capacitor** (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android` v8)
+  to wrap the existing Vite/React app in a native Android shell.
+- `capacitor.config.ts`: bundle ID `com.universalconverter.app`, `webDir: 'dist'`,
+  `allowMixedContent: true`, blob: navigation allowed for Tesseract/ffmpeg blob workers.
+- `AndroidManifest.xml`: added `android:largeHeap="true"` + `hardwareAccelerated="true"`
+  so ffmpeg.wasm gets enough heap and Canvas renders fast.
+- Added `npm run android` script: `build → cap sync → cap open android` (opens
+  Android Studio ready to build APK/AAB).
+- `android/` added to `.gitignore` — it's a generated project, rebuilt from source.
+- **To build the APK:** install Android Studio, run `npm run android`, then in
+  Android Studio: Build → Generate Signed Bundle/APK → upload AAB to Play Store.
+- **One-time cost:** Google Play Developer account ($25). Everything else is free.
+
+
+
 ### 2026-06-25 (latest) — PWA (offline) + trimmed OCR assets
 - **Trimmed OCR assets 40 MB → 20 MB:** dropped the non-SIMD cores (all modern
   browsers have WASM SIMD) and the redundant separate `.wasm` binaries (the

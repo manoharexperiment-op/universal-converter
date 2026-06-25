@@ -14,3 +14,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Capacitor Android — generated native project, rebuild with: npm run android
+android/
