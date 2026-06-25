@@ -5,8 +5,17 @@ import type { ConversionResult, ParamControl, ParamValues, ProgressFn } from './
 import { defaultsOf } from './converters/types';
 import { mergePdfs, imagesToPdf, mergeAudio } from './converters/batchConverters';
 import { onFFmpegStatus, terminateFFmpeg } from './converters/mediaConverters';
-import { downloadBlob } from './lib/download';
+import { downloadBlob, isNativePlatform } from './lib/download';
 import './App.css';
+
+/**
+ * The native Share sheet reports a user dismissal as a thrown error (e.g.
+ * "Share canceled"). That's not a conversion failure, so detect it and treat
+ * it as a benign outcome rather than an error.
+ */
+function isShareDismissal(msg: string): boolean {
+  return /cancel|dismiss|abort/i.test(msg);
+}
 
 const ICONS: Record<string, string> = {
   pdf: '📄', docx: '📝', txt: '📃', xlsx: '📊', csv: '📋', zip: '🗜️',
@@ -180,13 +189,19 @@ export default function App() {
     if (selected.media) onFFmpegStatus(setStatus);
     try {
       const result = await selected.run((f) => setProgress(f), paramValues);
-      downloadBlob(result.blob, result.filename);
-      setDone(result.note ?? `Done! Downloaded ${result.filename}`);
+      await downloadBlob(result.blob, result.filename);
+      const savedMsg = isNativePlatform()
+        ? `Ready — choose where to save ${result.filename}.`
+        : `Done! Downloaded ${result.filename}`;
+      setDone(result.note ?? savedMsg);
     } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Something went wrong.';
       if (canceledRef.current) {
         setError('Canceled.');
+      } else if (isShareDismissal(msg)) {
+        // The conversion succeeded; the user just dismissed the share sheet.
+        setDone('Conversion finished — file not saved (share dismissed).');
       } else {
-        const msg = e instanceof Error ? e.message : 'Something went wrong.';
         setError(`Conversion failed: ${msg}`);
       }
     } finally {

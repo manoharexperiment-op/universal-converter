@@ -83,6 +83,35 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-06-26 — Fix: converted files now save on Android (native share)
+- **Bug:** in the Android app, conversions ran but the output file never
+  appeared. Root cause: the old `downloadBlob` used a blob URL + hidden
+  `<a download>.click()`, which **does nothing in an Android WebView** (no
+  download manager fires; the file is silently dropped).
+- **Fix** ([`src/lib/download.ts`](src/lib/download.ts)): `downloadBlob` is now
+  platform-aware. Web keeps the blob-URL download; **native** writes the file to
+  `Directory.Cache` via `@capacitor/filesystem`, then opens the native
+  **Share/Save sheet** (`@capacitor/share`) so the user picks Files / Downloads /
+  Drive / WhatsApp / etc. No storage permission needed; works on all Android versions.
+- **Large-file safe:** writes in **3 MiB base64 chunks** (`writeFile` + `appendFile`)
+  so a big video/WAV can't balloon into one ~2.66× UTF-16 base64 string and OOM-crash
+  the WebView. Chunk size is a multiple of 3 bytes so concatenated base64 is byte-exact.
+  (Caught by an adversarial review pass — high-severity finding, since inputs up to
+  200 MB are allowed.)
+- **Filename sanitized** for the FS path (illegal chars → `_`, keeps spaces/hyphens);
+  share-sheet **dismissal** is treated as benign, not a "conversion failed" error.
+- [`App.tsx`](src/App.tsx): awaits the async save; native success message is
+  "Ready — choose where to save …".
+- The Android `FileProvider` (`${applicationId}.fileprovider`) + `file_paths.xml`
+  `<cache-path/>` already expose the cache dir — no native changes needed.
+- **Build caveat (OneDrive):** the project lives under OneDrive, and Gradle's
+  resource-merge fails with file-lock errors ("failed to delete some children")
+  when OneDrive sync / Android Studio hold the `android/app/build` folder. Fix that
+  worked: stop OneDrive + Android Studio, delete `android/app/build`, then
+  `gradlew assembleDebug`. **Recommend moving the project out of OneDrive** (or
+  excluding `android/app/build` from sync) to avoid this on every rebuild.
+- Rebuilt `app-debug.apk` (20.3 MB) with the fix; copied to Desktop for testing.
+
 ### 2026-06-25 — Android app (Capacitor)
 - **Added Capacitor** (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android` v8)
   to wrap the existing Vite/React app in a native Android shell.
