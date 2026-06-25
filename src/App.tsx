@@ -4,7 +4,7 @@ import { AUDIO_EXTS, getSourceType, IMAGE_EXTS, REGISTRY } from './converters/re
 import type { ConversionResult, ParamControl, ParamValues, ProgressFn } from './converters/types';
 import { defaultsOf } from './converters/types';
 import { mergePdfs, imagesToPdf, mergeAudio } from './converters/batchConverters';
-import { terminateFFmpeg } from './converters/mediaConverters';
+import { onFFmpegStatus, terminateFFmpeg } from './converters/mediaConverters';
 import { downloadBlob } from './lib/download';
 import './App.css';
 
@@ -106,6 +106,7 @@ export default function App() {
   const [progress, setProgress] = useState(0); // 0..1, 0 means "indeterminate"
   const [error, setError] = useState('');
   const [done, setDone] = useState('');
+  const [status, setStatus] = useState('');
   const canceledRef = useRef(false);
 
   const reset = () => {
@@ -174,7 +175,9 @@ export default function App() {
     setBusy(true);
     setError('');
     setDone('');
+    setStatus('');
     setProgress(0);
+    if (selected.media) onFFmpegStatus(setStatus);
     try {
       const result = await selected.run((f) => setProgress(f), paramValues);
       downloadBlob(result.blob, result.filename);
@@ -187,8 +190,10 @@ export default function App() {
         setError(`Conversion failed: ${msg}`);
       }
     } finally {
+      onFFmpegStatus(null);
       setBusy(false);
       setProgress(0);
+      setStatus('');
     }
   };
 
@@ -290,12 +295,17 @@ export default function App() {
         )}
 
         {busy && (
-          <div className="progress-bar">
-            <div
-              className={`progress-fill ${progress > 0 ? '' : 'indeterminate'}`}
-              style={progress > 0 ? { width: `${pct}%` } : undefined}
-            />
-          </div>
+          <>
+            <div className="progress-bar">
+              <div
+                className={`progress-fill ${progress > 0 ? '' : 'indeterminate'}`}
+                style={progress > 0 ? { width: `${pct}%` } : undefined}
+              />
+            </div>
+            {selected?.media && (
+              <p className="status">{status || 'Encoding in your browser — this can take a while…'}</p>
+            )}
+          </>
         )}
 
         {error && <div className="message error">{error}</div>}

@@ -6,16 +6,16 @@
 
 ## Current status
 
-**Phase:** Full feature set + Cancel button; repo public; verified & pushed.
+**Phase:** Offline OCR + richer encode progress added; verified & pushed.
 **Last updated:** 2026-06-25
 
 The app is a **100% client-side** file converter (Vite + React + TypeScript).
-No backend, no uploads, no login. Deployed on Vercel. Includes a parameter-UI,
-the full feature batch (**image/PDF compress, video→GIF, MP4↔WebM, video
-compress, audio trim/merge, bitrate**), and a **Cancel** button for long video
-encodes — all verified in-browser.
+No backend, no uploads, no login. Deployed on Vercel. OCR is now **fully
+self-hosted** (no third-party CDN), and long media encodes show a live
+"Processing… HH:MM:SS" status. All earlier features (compress, GIF, MP4↔WebM,
+trim/merge, bitrate, Cancel) remain — everything verified in-browser.
 
-Repo (now **public**): https://github.com/manoharexperiment-op/universal-converter
+Repo (public): https://github.com/manoharexperiment-op/universal-converter
 (If Vercel is connected to the repo, the latest push auto-deploys.)
 
 ---
@@ -83,7 +83,22 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
-### 2026-06-25 (latest) — Repo public + Cancel button
+### 2026-06-25 (latest) — Offline OCR + richer encode progress
+- **Self-hosted OCR:** vendored the Tesseract worker + all core wasm variants and
+  the English traineddata into `public/tesseract/` (~40 MB). `imageToText` now
+  points `workerPath`/`corePath`/`langPath` at our own origin (absolute URLs — a
+  blob worker can't resolve root-relative paths). OCR no longer contacts any
+  third-party CDN. Verified: recognized text in 655 ms with **zero external
+  network requests** (network panel showed only our origin + blob URLs).
+- **Richer encode progress:** `mediaConverters` now parses ffmpeg's `time=` log
+  lines and feeds a live "Processing… HH:MM:SS" status (via `onFFmpegStatus`)
+  shown under the progress bar for media jobs — useful when the % is unreliable
+  (two-pass GIF, slow VP8). Verified the status callback fires during a transcode.
+- **Note:** the self-hosted Tesseract assets add ~40 MB to the repo/deploy. To
+  trim, drop the non-SIMD core variants or switch to `tessdata_fast` (smaller,
+  slightly lower OCR accuracy).
+
+### 2026-06-25 — Repo public + Cancel button
 - **Made the GitHub repo public.**
 - **Cancel button** for long video/audio encodes: `terminateFFmpeg()` kills the
   worker and resets the core singleton (next run reloads fresh). Shown only for
@@ -191,5 +206,7 @@ server). The earlier PDF→image stall is resolved.
 - [x] **Cancel button** for long video encodes (done + verified).
 - [ ] **Confirm the live site updated** after this push (if Vercel auto-deploy is
       connected; otherwise trigger a redeploy).
-- [ ] (Optional) Self-host Tesseract language data for full offline OCR.
-- [ ] (Optional) Richer progress for long encodes (parse ffmpeg `frame=` logs).
+- [x] Self-host Tesseract for full offline OCR (done + verified, ~40 MB assets).
+- [x] Richer progress for long encodes (live `time=` status — done + verified).
+- [ ] (Optional) Trim the ~40 MB OCR assets (drop non-SIMD cores / use tessdata_fast).
+- [ ] (Optional) PWA/service-worker so the whole app works offline after first visit.

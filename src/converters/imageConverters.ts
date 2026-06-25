@@ -146,7 +146,16 @@ export async function compressImage(
 /** Extract text from an image using on-device OCR (Tesseract.js / WASM). */
 export async function imageToText(file: File, onProgress?: ProgressFn): Promise<ConversionResult> {
   const Tesseract = (await import('tesseract.js')).default;
+  // Absolute URLs (with origin) so the blob worker can resolve them — root-
+  // relative paths fail inside a blob: worker.
+  const base = window.location.origin;
   const { data } = await Tesseract.recognize(file, 'eng', {
+    // Self-hosted worker / core / language data (in /public/tesseract) — OCR
+    // never contacts a third-party CDN, so it works offline & fully private.
+    workerPath: `${base}/tesseract/worker.min.js`,
+    corePath: `${base}/tesseract`,
+    langPath: `${base}/tesseract/lang`,
+    gzip: true,
     logger: (m: { status: string; progress: number }) => {
       if (m.status === 'recognizing text') onProgress?.(m.progress);
     },

@@ -15,6 +15,13 @@ const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 
 let ffmpegPromise: Promise<import('@ffmpeg/ffmpeg').FFmpeg> | null = null;
 
+// Optional human-readable status (e.g. "Processing… 00:00:03.2") parsed from
+// ffmpeg's logs — useful when the % progress is unreliable (two-pass GIF, etc.).
+let statusListener: ((status: string) => void) | null = null;
+export function onFFmpegStatus(cb: ((status: string) => void) | null) {
+  statusListener = cb;
+}
+
 /** Load the ~30 MB ffmpeg core once and reuse it for every conversion. */
 async function getFFmpeg() {
   if (!ffmpegPromise) {
@@ -25,6 +32,12 @@ async function getFFmpeg() {
       await ffmpeg.load({
         coreURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.js`, 'text/javascript'),
         wasmURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+      // ffmpeg prints "... time=00:00:03.20 ..." as it works — surface it.
+      ffmpeg.on('log', ({ message }) => {
+        if (!statusListener) return;
+        const m = /time=\s*([0-9:.]+)/.exec(message);
+        if (m && m[1] !== 'N/A') statusListener(`Processing… ${m[1]}`);
       });
       return ffmpeg;
     })();
