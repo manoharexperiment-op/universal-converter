@@ -104,13 +104,16 @@ server). The earlier PDF→image stall is resolved.
   "Ready — choose where to save …".
 - The Android `FileProvider` (`${applicationId}.fileprovider`) + `file_paths.xml`
   `<cache-path/>` already expose the cache dir — no native changes needed.
-- **Build caveat (OneDrive):** the project lives under OneDrive, and Gradle's
-  resource-merge fails with file-lock errors ("failed to delete some children")
-  when OneDrive sync / Android Studio hold the `android/app/build` folder. Fix that
-  worked: stop OneDrive + Android Studio, delete `android/app/build`, then
-  `gradlew assembleDebug`. **Recommend moving the project out of OneDrive** (or
-  excluding `android/app/build` from sync) to avoid this on every rebuild.
+- **Project relocated out of OneDrive → `C:\dev\universal-converter`.** OneDrive's
+  file-sync locks the `android/app/build` folder mid-build, so Gradle's resource
+  merge failed ("failed to delete some children" / "AccessDenied"). After moving,
+  a clean `gradlew assembleDebug` builds reliably **with OneDrive running** — no
+  more stop-OneDrive dance. (One-time gotcha after the move: stale Gradle caches
+  carried over; wiped `android/.gradle`, the `build/` dirs, and
+  `node_modules/@capacitor/*/.../build`, then it built clean.)
 - Rebuilt `app-debug.apk` (20.3 MB) with the fix; copied to Desktop for testing.
+- Build cmd: set `JAVA_HOME` to Android Studio's `jbr`, then
+  `cd android && .\gradlew.bat assembleDebug`.
 
 ### 2026-06-25 — Android app (Capacitor)
 - **Added Capacitor** (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android` v8)
