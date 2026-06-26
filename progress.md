@@ -83,6 +83,22 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-06-26 — Use the user's real logo + app icon
+- Replaced the recreated SVG wordmark with the **user-supplied artwork**:
+  `assets/brand/logo-src.jpg` (MunnX wordmark on white) and
+  `assets/brand/icon-src.jpg` (finished mX / MUNNX square tile).
+- [`scripts/process-brand.mjs`](scripts/process-brand.mjs) (sharp):
+  - Logo: **keys out the white background** (near-white→transparent with a feathered
+    205–236 band; the wordmark has no white parts so letters stay intact) and trims →
+    `public/logo.png` (transparent, sits cleanly on the navy header).
+  - Icon: emits `assets/icon-only|foreground|background.png` (white adaptive bg matches
+    the tile's own white border) + `public/icon.png` favicon. Android launcher icons
+    regenerated via `@capacitor/assets`.
+- Header now uses `<img src="/logo.png">`; favicon + PWA manifest + apple-touch-icon
+  point to `/icon.png`. Removed the interim SVG recreations and `scripts/gen-icons.mjs`.
+- Verified in preview (logo 888×304 transparent, loads; favicon = icon.png). Rebuilt
+  `MunnX-Convertor.apk` (21 MB).
+
 ### 2026-06-26 — Branding: "MunnX Convertor" (electric blue + sunset orange)
 - **Renamed** the app to **MunnX Convertor** everywhere users see it: header
   wordmark ([`App.tsx`](src/App.tsx)), `index.html` title/description,

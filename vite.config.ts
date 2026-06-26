@@ -38,7 +38,7 @@ export default defineConfig(({ mode }) => {
                 background_color: '#0a1228',
                 display: 'standalone',
                 start_url: '/',
-                icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
+                icons: [{ src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any' }],
               },
               workbox: {
                 // Precache the app shell + all code chunks so the app works offline after

@@ -9,15 +9,20 @@
   padding: 40px 0 28px;
 }
 
-.header h1 {
-  font-size: 2.4rem;
-  margin-bottom: 10px;
-  letter-spacing: -0.5px;
-  /* Brand wordmark: electric-blue → sunset-orange blend */
-  background: linear-gradient(to right, #38bdf8, #fb923c);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+.logo {
+  display: block;
+  width: min(260px, 70%);
+  height: auto;
+  margin: 0 auto 2px;
+}
+
+.brand-sub {
+  font-size: 1.2rem;
+  font-weight: 400;
+  letter-spacing: 7px;
+  text-indent: 7px;
+  color: #cfe0f5;
+  margin-bottom: 12px;
 }
 
 .header p {
