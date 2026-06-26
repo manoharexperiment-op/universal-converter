@@ -83,6 +83,29 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-06-26 — Fix: native save was bypassed by the PWA service worker
+- **Symptom:** in the installed APK the UI still said "Downloaded" and no file
+  appeared / no share sheet — i.e. the **web** save path ran inside the native app.
+- **Root cause:** the bundled fix was correct, but `Capacitor.isNativePlatform()`
+  returned **false** at runtime. The PWA **service worker** serves a cached
+  `index.html`, which **bypasses Capacitor's native-bridge injection** — so
+  `window.Capacitor` never gets its native flag and filesystem/share fall back to
+  no-op web stubs. (Confirmed by extracting the APK: `index.html` contained
+  `<script ... vite-plugin-pwa:register-sw>`.)
+- **Fix:**
+  - [`vite.config.ts`](vite.config.ts): PWA is now **mode-gated**. `vite build`
+    (web/Vercel) keeps the service worker; `vite build --mode capacitor` (native)
+    **omits VitePWA entirely** — no SW, no manifest.
+  - [`package.json`](package.json): `build:app` = `vite build --mode capacitor`;
+    `android` now runs `build:app` before `cap sync`/`cap open`.
+  - [`src/main.tsx`](src/main.tsx): defensive — on native, **unregister any
+    existing service worker** and clear its caches (an SW from a previously
+    installed PWA build survives an app update and would keep hijacking).
+  - Verified the rebuilt APK's `assets/public/index.html` has **no** `registerSW`
+    and the bundle ships no `sw.js`/`workbox`/`manifest`.
+- **To test:** fully **uninstall** the old app first (clears the stale registered
+  SW), then install the new `app-debug.apk`. Expect: share/save sheet on convert.
+
 ### 2026-06-26 — Fix: converted files now save on Android (native share)
 - **Bug:** in the Android app, conversions ran but the output file never
   appeared. Root cause: the old `downloadBlob` used a blob URL + hidden
