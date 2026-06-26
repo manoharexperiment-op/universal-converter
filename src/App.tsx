@@ -224,7 +224,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>🔄 Universal File Converter</h1>
+        <h1>MunnX Convertor</h1>
         <p>Convert PDF, Word, Excel, images, audio &amp; video — free, no login, nothing uploaded.</p>
       </header>
 

@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.universalconverter.app',
-  appName: 'Universal File Converter',
+  appName: 'MunnX Convertor',
   webDir: 'dist',
   android: {
     allowMixedContent: true,

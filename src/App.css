@@ -12,20 +12,22 @@
 .header h1 {
   font-size: 2.4rem;
   margin-bottom: 10px;
-  background: linear-gradient(to right, #8ea2ff, #c08cff);
+  letter-spacing: -0.5px;
+  /* Brand wordmark: electric-blue → sunset-orange blend */
+  background: linear-gradient(to right, #38bdf8, #fb923c);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .header p {
-  color: #a8a8c8;
+  color: #9db2d6;
   font-size: 1.05rem;
 }
 
 /* Dropzone */
 .dropzone {
-  border: 2px dashed #667eea;
+  border: 2px dashed #2563eb;
   border-radius: 16px;
   padding: 44px 24px;
   text-align: center;
@@ -36,8 +38,8 @@
 }
 .dropzone:hover,
 .dropzone.active {
-  border-color: #9a7ec0;
-  background: rgba(102, 126, 234, 0.12);
+  border-color: #38bdf8;
+  background: rgba(37, 99, 235, 0.14);
 }
 .dropzone.has-file {
   border-style: solid;
@@ -54,7 +56,7 @@
   margin: 4px 0;
 }
 .upload-sub {
-  color: #8a8aa8;
+  color: #7e93b5;
   font-size: 0.9rem !important;
 }
 
@@ -76,7 +78,7 @@
   word-break: break-all;
 }
 .file-size {
-  color: #8a8aa8;
+  color: #7e93b5;
   font-size: 0.88rem;
 }
 .remove-btn {
@@ -103,7 +105,7 @@
 .format-section h3 {
   margin-bottom: 14px;
   font-size: 1.05rem;
-  color: #c4c4e4;
+  color: #cfe0f5;
 }
 .format-grid {
   display: grid;
@@ -122,17 +124,17 @@
   transition: all 0.2s;
 }
 .format-btn:hover {
-  border-color: #667eea;
-  background: rgba(102, 126, 234, 0.16);
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.14);
 }
 .format-btn.selected {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  border-color: #38bdf8;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.45);
 }
 .note {
   margin-top: 12px;
-  color: #a8a8c8;
+  color: #9db2d6;
   font-size: 0.86rem;
 }
 
@@ -154,7 +156,7 @@
   font-size: 0.85rem;
 }
 .param-label {
-  color: #b8b8d4;
+  color: #aebfe0;
 }
 .param-row select,
 .param-row input {
@@ -167,7 +169,7 @@
   min-width: 130px;
 }
 .param-row select option {
-  background: #24243e;
+  background: #0e2350;
   color: #fff;
 }
 .param-row input[type='number'] {
@@ -180,7 +182,7 @@
   gap: 6px;
 }
 .param-unit {
-  color: #8a8aa8;
+  color: #7e93b5;
   font-size: 0.82rem;
 }
 
@@ -210,7 +212,7 @@
   background: rgba(239, 68, 68, 0.3);
 }
 
-/* Convert button */
+/* Convert button — sunset-orange CTA that pops against the blue UI */
 .convert-btn {
   display: flex;
   align-items: center;
@@ -219,7 +221,7 @@
   width: 100%;
   margin-top: 24px;
   padding: 16px 24px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, #f97316, #fb923c);
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -230,7 +232,7 @@
 }
 .convert-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 8px 25px rgba(249, 115, 22, 0.5);
 }
 .convert-btn:disabled {
   opacity: 0.7;
@@ -252,7 +254,7 @@
   }
 }
 
-/* Progress */
+/* Progress — blue → orange, the brand blend in motion */
 .progress-bar {
   margin-top: 14px;
   height: 6px;
@@ -262,7 +264,7 @@
 }
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #667eea, #764ba2);
+  background: linear-gradient(90deg, #2563eb, #f97316);
   border-radius: 3px;
   transition: width 0.3s;
 }
@@ -282,7 +284,7 @@
 .status {
   margin-top: 8px;
   text-align: center;
-  color: #9a9ac0;
+  color: #8ea6cc;
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
 }
@@ -317,7 +319,7 @@
 .supported h3 {
   text-align: center;
   margin-bottom: 18px;
-  color: #c4c4e4;
+  color: #cfe0f5;
 }
 .supported-row {
   display: flex;
@@ -334,18 +336,18 @@
 }
 .arrow {
   margin: 0 14px;
-  color: #8ea2ff;
+  color: #38bdf8;
   font-weight: bold;
 }
 .to {
-  color: #a8a8c8;
+  color: #9db2d6;
   font-size: 0.9rem;
 }
 
 .footer {
   text-align: center;
   padding: 30px 0;
-  color: #7a7a98;
+  color: #6f86a8;
   font-size: 0.88rem;
 }
 

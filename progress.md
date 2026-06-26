@@ -1,4 +1,4 @@
-# Universal File Converter — Progress Log
+# MunnX Convertor — Progress Log
 
 > Living document. Updated at every step. Newest changelog entry on top.
 
@@ -82,6 +82,28 @@ server). The earlier PDF→image stall is resolved.
 ---
 
 ## Changelog
+
+### 2026-06-26 — Branding: "MunnX Convertor" (electric blue + sunset orange)
+- **Renamed** the app to **MunnX Convertor** everywhere users see it: header
+  wordmark ([`App.tsx`](src/App.tsx)), `index.html` title/description,
+  PWA manifest name/short_name ([`vite.config.ts`](vite.config.ts)),
+  Capacitor `appName` ([`capacitor.config.ts`](capacitor.config.ts)), and Android
+  `strings.xml` (`app_name`/`title_activity_main`). Bundle ID unchanged
+  (`com.universalconverter.app`) — can be rebranded pre-publish if wanted.
+- **Color palette → electric blue + sunset orange** (complementary):
+  - Background: deep navy gradient `#0a1228 → #112a5c → #0b1730` (`index.css`).
+  - Wordmark: blue→orange gradient text `#38bdf8 → #fb923c` — the brand blend.
+  - Blue (`#2563eb`/`#38bdf8`) = structure: dropzone, selected format chips, links,
+    arrows. Orange (`#f97316 → #fb923c`) = the Convert CTA, so it pops.
+  - Progress bar runs blue→orange. `theme-color`/splash = `#0a1228`. (`App.css`.)
+- **App icon rebranded:** `public/icon.svg` recolored to the blue→orange gradient.
+  Generated all Android launcher densities + adaptive (foreground/background) +
+  round icons with `@capacitor/assets` from `assets/icon-*.png`, themselves
+  produced by [`scripts/gen-icons.mjs`](scripts/gen-icons.mjs) (sharp-rasterized
+  brand art). Replaces the default Capacitor logo on the home screen.
+- **Verified** in the dev preview: title, wordmark text + gradient, and navy body
+  background all computed correctly; app mounts with no console errors.
+- Rebuilt `MunnX-Convertor.apk` (20.5 MB) on the Desktop.
 
 ### 2026-06-26 — Fix: native save was bypassed by the PWA service worker
 - **Symptom:** in the installed APK the UI still said "Downloaded" and no file
