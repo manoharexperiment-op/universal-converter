@@ -83,6 +83,29 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-06-26 — "Save to device" on Android (MediaStore Downloads)
+- **Problem:** the share-only flow had no "save to Files" target on the user's
+  device. **Fix:** a one-tap **Save to device** that writes the converted file
+  straight into the public **Downloads** collection via MediaStore — visible in
+  the Files app instantly, **no permission prompt** on Android 10+. **Share** is
+  kept as a secondary button.
+- **Native plugin** [`DownloadsSaverPlugin.java`](android/app/src/main/java/com/universalconverter/app/DownloadsSaverPlugin.java)
+  (registered in `MainActivity`): inserts a MediaStore.Downloads row with
+  `IS_PENDING`, **stream-copies** the cached file into the `content://` URI (no
+  bytes over the JS bridge → flat memory at 100MB+), clears pending, and rolls
+  back the row on failure. Runs the copy on a **background thread** (no ANR).
+  Rejects `UNSUPPORTED_VERSION` on Android 9- so JS falls back to Share.
+- **TS:** [`src/lib/downloads-saver.ts`](src/lib/downloads-saver.ts) (registerPlugin)
+  + [`download.ts`](src/lib/download.ts) `saveToDevice()` / `shareFile()` /
+  chunked `writeToCache()`. `App.tsx` now holds the result and shows
+  **Save to device + Share** on Android instead of auto-opening the share sheet;
+  web still auto-downloads.
+- **Native project is now committed** (`android/` removed from root `.gitignore`;
+  build artifacts still excluded by `android/.gitignore`) so the plugin, manifest
+  tweaks, and branded launcher icons survive.
+- Verified: web build clean (buttons are Android-only, no console errors); native
+  APK compiles the plugin and the bundle references it. APK 21.2 MB.
+
 ### 2026-06-26 — Use the user's real logo + app icon
 - Replaced the recreated SVG wordmark with the **user-supplied artwork**:
   `assets/brand/logo-src.jpg` (MunnX wordmark on white) and

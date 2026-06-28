@@ -15,5 +15,6 @@ dist-ssr
 *.sln
 *.sw?
 
-# Capacitor Android — generated native project, rebuild with: npm run android
-android/
+# Capacitor Android: the native project IS committed (it holds custom native code —
+# the DownloadsSaver plugin, largeHeap manifest, branded launcher icons). Build
+# artifacts inside it are excluded by android/.gitignore.

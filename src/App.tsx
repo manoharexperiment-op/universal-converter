@@ -5,17 +5,15 @@ import type { ConversionResult, ParamControl, ParamValues, ProgressFn } from './
 import { defaultsOf } from './converters/types';
 import { mergePdfs, imagesToPdf, mergeAudio } from './converters/batchConverters';
 import { onFFmpegStatus, terminateFFmpeg } from './converters/mediaConverters';
-import { downloadBlob, isNativePlatform } from './lib/download';
+import {
+  isNativePlatform,
+  isAndroidApp,
+  downloadBlob,
+  saveToDevice,
+  shareFile,
+  isShareDismissal,
+} from './lib/download';
 import './App.css';
-
-/**
- * The native Share sheet reports a user dismissal as a thrown error (e.g.
- * "Share canceled"). That's not a conversion failure, so detect it and treat
- * it as a benign outcome rather than an error.
- */
-function isShareDismissal(msg: string): boolean {
-  return /cancel|dismiss|abort/i.test(msg);
-}
 
 const ICONS: Record<string, string> = {
   pdf: '📄', docx: '📝', txt: '📃', xlsx: '📊', csv: '📋', zip: '🗜️',
@@ -116,6 +114,9 @@ export default function App() {
   const [error, setError] = useState('');
   const [done, setDone] = useState('');
   const [status, setStatus] = useState('');
+  // On the native app, the converted file waits here for a Save/Share choice.
+  const [pending, setPending] = useState<{ blob: Blob; filename: string } | null>(null);
+  const [saving, setSaving] = useState(false);
   const canceledRef = useRef(false);
 
   const reset = () => {
@@ -124,6 +125,7 @@ export default function App() {
     setError('');
     setDone('');
     setProgress(0);
+    setPending(null);
   };
 
   const onDrop = useCallback((accepted: File[]) => {
@@ -133,6 +135,7 @@ export default function App() {
       setError('');
       setDone('');
       setProgress(0);
+      setPending(null);
     }
   }, []);
 
@@ -186,29 +189,59 @@ export default function App() {
     setDone('');
     setStatus('');
     setProgress(0);
+    setPending(null);
     if (selected.media) onFFmpegStatus(setStatus);
     try {
       const result = await selected.run((f) => setProgress(f), paramValues);
-      await downloadBlob(result.blob, result.filename);
-      const savedMsg = isNativePlatform()
-        ? `Ready — choose where to save ${result.filename}.`
-        : `Done! Downloaded ${result.filename}`;
-      setDone(result.note ?? savedMsg);
+      if (isNativePlatform()) {
+        // Hold the file and let the user choose Save to device / Share.
+        setPending({ blob: result.blob, filename: result.filename });
+        setDone(result.note ?? `Converted ${result.filename}.`);
+      } else {
+        downloadBlob(result.blob, result.filename);
+        setDone(result.note ?? `Done! Downloaded ${result.filename}`);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Something went wrong.';
-      if (canceledRef.current) {
-        setError('Canceled.');
-      } else if (isShareDismissal(msg)) {
-        // The conversion succeeded; the user just dismissed the share sheet.
-        setDone('Conversion finished — file not saved (share dismissed).');
-      } else {
-        setError(`Conversion failed: ${msg}`);
-      }
+      setError(canceledRef.current ? 'Canceled.' : `Conversion failed: ${msg}`);
     } finally {
       onFFmpegStatus(null);
       setBusy(false);
       setProgress(0);
       setStatus('');
+    }
+  };
+
+  const doSave = async () => {
+    if (!pending) return;
+    setSaving(true);
+    setError('');
+    try {
+      const where = await saveToDevice(pending.blob, pending.filename);
+      setDone(
+        where === 'downloads'
+          ? `Saved to Downloads › MunnX Convertor › ${pending.filename}`
+          : `Saved ${pending.filename}.`,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Something went wrong.';
+      if (!isShareDismissal(msg)) setError(`Couldn't save: ${msg}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const doShare = async () => {
+    if (!pending) return;
+    setSaving(true);
+    setError('');
+    try {
+      await shareFile(pending.blob, pending.filename);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Something went wrong.';
+      if (!isShareDismissal(msg)) setError(`Couldn't share: ${msg}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -326,6 +359,24 @@ export default function App() {
 
         {error && <div className="message error">{error}</div>}
         {done && <div className="message success">{done}</div>}
+
+        {pending && isAndroidApp() && (
+          <div className="save-row">
+            <button className="convert-btn" onClick={doSave} disabled={saving}>
+              {saving ? <><span className="spinner" /> Working…</> : <>⬇️ Save to device</>}
+            </button>
+            <button className="share-btn" onClick={doShare} disabled={saving}>
+              ↗️ Share
+            </button>
+          </div>
+        )}
+        {pending && isNativePlatform() && !isAndroidApp() && (
+          <div className="save-row">
+            <button className="convert-btn" onClick={doShare} disabled={saving}>
+              {saving ? <><span className="spinner" /> Working…</> : <>↗️ Save / Share</>}
+            </button>
+          </div>
+        )}
 
         <section className="supported">
           <h3>Supported conversions</h3>

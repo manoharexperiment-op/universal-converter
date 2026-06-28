@@ -217,6 +217,36 @@
   background: rgba(239, 68, 68, 0.3);
 }
 
+/* Save to device / Share row (native app, after a conversion) */
+.save-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin-top: 16px;
+}
+.save-row .convert-btn {
+  flex: 1;
+  margin-top: 0;
+}
+.share-btn {
+  padding: 0 24px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #7fd2fb;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.share-btn:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.22);
+}
+.share-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Convert button — sunset-orange CTA that pops against the blue UI */
 .convert-btn {
   display: flex;

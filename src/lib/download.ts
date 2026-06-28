@@ -5,26 +5,17 @@ export function isNativePlatform(): boolean {
   return Capacitor.isNativePlatform();
 }
 
-/**
- * Save a converted Blob.
- *
- * - **Web:** trigger a normal browser download (blob URL + a hidden <a download>).
- *   The blob lives only in memory and is released right after the click.
- * - **Native (Capacitor):** an <a download> click does NOTHING in an Android
- *   WebView — no download manager fires and the file is silently dropped. So we
- *   write the file to the app's cache directory and open the native Share/Save
- *   sheet, letting the user save it to Files / Downloads / Drive / etc. This
- *   needs no storage permission and works on every Android version.
- */
-export async function downloadBlob(blob: Blob, filename: string): Promise<void> {
-  if (isNativePlatform()) {
-    await saveNative(blob, filename);
-    return;
-  }
-  saveWeb(blob, filename);
+/** True only on the native Android app, where "Save to device" is available. */
+export function isAndroidApp(): boolean {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 }
 
-function saveWeb(blob: Blob, filename: string): void {
+/**
+ * WEB: trigger a normal browser download (blob URL + a hidden <a download>).
+ * The blob lives only in memory and is released right after the click.
+ * (On native an <a download> click does nothing — use saveToDevice/shareFile.)
+ */
+export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -32,8 +23,55 @@ function saveWeb(blob: Blob, filename: string): void {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // Give the browser a tick to start the download before revoking the URL.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export type SaveOutcome = 'downloads' | 'shared';
+
+/**
+ * NATIVE "Save to device". Writes the file into the public Downloads collection
+ * via MediaStore (visible in Files, no permission on Android 10+). If that's
+ * unavailable (Android 9-, or any failure), falls back to the share sheet.
+ * Returns where it ended up so the UI can message accurately.
+ */
+export async function saveToDevice(blob: Blob, filename: string): Promise<SaveOutcome> {
+  const name = sanitizeFilename(filename);
+  const { uri } = await writeToCache(blob, name);
+
+  if (Capacitor.getPlatform() === 'android') {
+    try {
+      const { DownloadsSaver } = await import('./downloads-saver');
+      await DownloadsSaver.saveToDownloads({
+        sourceUri: uri,
+        fileName: name,
+        mimeType: mimeFor(name),
+        subDirectory: 'MunnX Convertor',
+      });
+      return 'downloads';
+    } catch {
+      // Android 9-, or the save failed for some reason — fall back to sharing.
+    }
+  }
+
+  await shareUri(uri, name);
+  return 'shared';
+}
+
+/** NATIVE "Share": write to cache then open the system share sheet. */
+export async function shareFile(blob: Blob, filename: string): Promise<void> {
+  const name = sanitizeFilename(filename);
+  const { uri } = await writeToCache(blob, name);
+  await shareUri(uri, name);
+}
+
+async function shareUri(uri: string, name: string): Promise<void> {
+  const { Share } = await import('@capacitor/share');
+  await Share.share({ title: name, text: name, url: uri });
+}
+
+/** A thrown share error that is really just the user dismissing the sheet. */
+export function isShareDismissal(message: string): boolean {
+  return /cancel/i.test(message);
 }
 
 // Write in 3 MiB slices. Capacitor's writeFile/appendFile are base64-only on
@@ -47,26 +85,19 @@ function saveWeb(blob: Blob, filename: string): void {
 // non-multiple-of-3 chunk would emit '=' padding mid-stream and corrupt the file.
 const CHUNK_BYTES = 3 * 1024 * 1024; // 3,145,728 — divisible by 3
 
-async function saveNative(blob: Blob, filename: string): Promise<void> {
-  // Lazy-import the native plugins so the web build never pulls them in.
-  const [{ Filesystem, Directory }, { Share }] = await Promise.all([
-    import('@capacitor/filesystem'),
-    import('@capacitor/share'),
-  ]);
-
-  // A filename is a path segment here — strip path separators and characters
-  // that are illegal on the filesystem, or writeFile would fail/misbehave.
-  const path = sanitizeFilename(filename);
+/** Write the blob into the app cache dir (chunked) and return its file:// URI. */
+async function writeToCache(blob: Blob, name: string): Promise<{ uri: string }> {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem');
   const directory = Directory.Cache;
+  const path = `exports/${name}`;
 
   if (blob.size === 0) {
-    await Filesystem.writeFile({ path, data: '', directory });
+    await Filesystem.writeFile({ path, data: '', directory, recursive: true });
   } else {
     for (let offset = 0, first = true; offset < blob.size; offset += CHUNK_BYTES) {
       const data = await blobToBase64(blob.slice(offset, offset + CHUNK_BYTES));
       if (first) {
-        // Create/truncate with the first chunk, then append the rest.
-        await Filesystem.writeFile({ path, data, directory });
+        await Filesystem.writeFile({ path, data, directory, recursive: true });
         first = false;
       } else {
         await Filesystem.appendFile({ path, data, directory });
@@ -74,10 +105,7 @@ async function saveNative(blob: Blob, filename: string): Promise<void> {
     }
   }
 
-  const { uri } = await Filesystem.getUri({ path, directory });
-
-  // Open Android's native share/save sheet so the user picks the destination.
-  await Share.share({ title: path, text: path, url: uri });
+  return Filesystem.getUri({ path, directory });
 }
 
 // Characters illegal in a filesystem path segment: \ / : * ? " < > | and
@@ -88,6 +116,38 @@ const ILLEGAL_FILENAME_CHARS = new RegExp('[\\\\/:*?"<>|\\u0000-\\u001f]', 'g');
 function sanitizeFilename(name: string): string {
   const cleaned = name.replace(ILLEGAL_FILENAME_CHARS, '_').trim();
   return cleaned.length ? cleaned : 'converted-file';
+}
+
+/** Minimal extension -> MIME map for MediaStore; falls back to octet-stream. */
+function mimeFor(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  const map: Record<string, string> = {
+    pdf: 'application/pdf',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    csv: 'text/csv',
+    txt: 'text/plain',
+    md: 'text/markdown',
+    html: 'text/html',
+    zip: 'application/zip',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    bmp: 'image/bmp',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    m4a: 'audio/mp4',
+    aac: 'audio/aac',
+    ogg: 'audio/ogg',
+    flac: 'audio/flac',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mov: 'video/quicktime',
+    mkv: 'video/x-matroska',
+  };
+  return map[ext] ?? 'application/octet-stream';
 }
 
 /**
