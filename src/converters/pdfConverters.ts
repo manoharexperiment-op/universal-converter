@@ -216,6 +216,75 @@ export async function pdfSplit(file: File, onProgress?: ProgressFn): Promise<Con
   return { blob, filename: `${stripExt(file.name)}_pages.zip` };
 }
 
+/**
+ * Run qpdf (compiled to WASM) over a single input → "/out.pdf". The .wasm is
+ * self-hosted in /public (absolute URL via origin) so it also works inside the
+ * native app. A fresh instance per call — Emscripten's runtime can't re-run main.
+ */
+async function runQpdf(input: ArrayBuffer, args: string[]): Promise<{ out: Uint8Array | null; err: string }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const createModule = (await import('@neslinesli93/qpdf-wasm')).default as any;
+  let err = '';
+  const qpdf = await createModule({
+    locateFile: () => `${window.location.origin}/qpdf.wasm`,
+    noInitialRun: true,
+    print: () => {},
+    printErr: (s: string) => { err += s + '\n'; },
+  });
+  qpdf.FS.writeFile('/in.pdf', new Uint8Array(input));
+  try {
+    qpdf.callMain(args);
+  } catch {
+    /* qpdf may exit() on error — output presence is the real signal */
+  }
+  let out: Uint8Array | null = null;
+  try {
+    out = qpdf.FS.readFile('/out.pdf');
+  } catch {
+    out = null;
+  }
+  return { out, err };
+}
+
+/** Password-protect a PDF (AES-256) with qpdf. The password becomes user + owner. */
+export async function protectPdf(
+  file: File,
+  _onProgress?: ProgressFn,
+  params?: ParamValues,
+): Promise<ConversionResult> {
+  const password = String(params?.password ?? '').trim();
+  if (!password) throw new Error('Enter a password to protect the PDF.');
+  const { out } = await runQpdf(await file.arrayBuffer(), [
+    '--encrypt', password, password, '256', '--', '/in.pdf', '/out.pdf',
+  ]);
+  if (!out) throw new Error('Could not protect this PDF — it may already be encrypted.');
+  return {
+    blob: new Blob([out], { type: 'application/pdf' }),
+    filename: addSuffix(file.name, '-protected'),
+    note: 'Protected with AES-256. Keep the password safe — it cannot be recovered.',
+  };
+}
+
+/** Remove a password from a PDF you can open (qpdf --decrypt). */
+export async function removePdfPassword(
+  file: File,
+  _onProgress?: ProgressFn,
+  params?: ParamValues,
+): Promise<ConversionResult> {
+  const password = String(params?.password ?? '');
+  const { out, err } = await runQpdf(await file.arrayBuffer(), [
+    `--password=${password}`, '--decrypt', '/in.pdf', '/out.pdf',
+  ]);
+  if (!out) {
+    if (/password|invalid|incorrect/i.test(err)) throw new Error('Wrong password for this PDF.');
+    throw new Error("Could not unlock — is this PDF actually password-protected?");
+  }
+  return {
+    blob: new Blob([out], { type: 'application/pdf' }),
+    filename: addSuffix(file.name, '-unlocked'),
+  };
+}
+
 /** Stamp a text watermark across every page of a PDF (pdf-lib). */
 export async function watermarkPdf(
   file: File,

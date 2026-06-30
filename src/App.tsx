@@ -34,6 +34,8 @@ const TOOLS: { icon: string; title: string; desc: string; tint: string }[] = [
   { icon: '📝', title: 'PDF → Word', desc: 'Editable .docx', tint: 'blue' },
   { icon: '🖨️', title: 'PDF → Image', desc: 'Pages to PNG / JPG', tint: 'orange' },
   { icon: '✂️', title: 'PDF Tools', desc: 'Split · Rotate · Merge', tint: 'red' },
+  { icon: '🔒', title: 'Protect PDF', desc: 'Add a password', tint: 'amber' },
+  { icon: '🔓', title: 'Unlock PDF', desc: 'Remove a password', tint: 'green' },
   { icon: '📊', title: 'Excel ↔ CSV', desc: 'Spreadsheets', tint: 'green' },
   { icon: '🎬', title: 'Video Convert', desc: 'MP4 · WebM · GIF', tint: 'pink' },
   { icon: '🎵', title: 'Audio Convert', desc: 'MP3 · WAV · trim', tint: 'purple' },

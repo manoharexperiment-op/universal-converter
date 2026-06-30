@@ -79,6 +79,12 @@ const RESIZE_PARAMS: ParamControl[] = [
     ],
   },
 ];
+const PROTECT_PARAMS: ParamControl[] = [
+  { kind: 'text', key: 'password', label: 'New password', default: '', placeholder: 'Choose a password', password: true },
+];
+const UNLOCK_PARAMS: ParamControl[] = [
+  { kind: 'text', key: 'password', label: 'Current password', default: '', placeholder: 'The PDF’s password', password: true },
+];
 const WATERMARK_PARAMS: ParamControl[] = [
   { kind: 'text', key: 'text', label: 'Watermark text', default: 'CONFIDENTIAL', placeholder: 'Your text' },
   {
@@ -139,6 +145,8 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'zip', label: 'Split pages', note: 'Each page as its own PDF (zipped)', run: (f, p) => pdf.pdfSplit(f, p) },
     { target: 'pdf', label: 'Compress', note: 'Best for scanned/image PDFs — flattens pages to images, so text is no longer selectable', params: [LEVEL_PARAM], run: (f, p, pv) => pdf.compressPdf(f, p, pv) },
     { target: 'pdf', label: 'Watermark', note: 'Stamp your text on every page', params: WATERMARK_PARAMS, run: (f, p, pv) => pdf.watermarkPdf(f, p, pv) },
+    { target: 'pdf', label: 'Protect', note: 'Add a password (AES-256). It cannot be recovered if forgotten.', params: PROTECT_PARAMS, run: (f, p, pv) => pdf.protectPdf(f, p, pv) },
+    { target: 'pdf', label: 'Unlock', note: 'Remove a password you already know', params: UNLOCK_PARAMS, run: (f, p, pv) => pdf.removePdfPassword(f, p, pv) },
   ],
   docx: [
     { target: 'pdf', label: 'PDF', note: 'Text + headings; advanced styling simplified', run: (f) => doc.docxToPdf(f) },

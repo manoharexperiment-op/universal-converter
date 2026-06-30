@@ -83,6 +83,18 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-07-01 — Batch 2b: PDF password protect + unlock (qpdf-wasm)
+- **Protect** (add AES-256 password) and **Unlock** (remove a known password) for PDFs
+  ([`pdfConverters.ts`](src/converters/pdfConverters.ts) `protectPdf` / `removePdfPassword`),
+  powered by **`@neslinesli93/qpdf-wasm`** (qpdf compiled to WASM). pdf-lib can't
+  encrypt, so qpdf fills that gap via a fresh Emscripten instance per call + virtual FS.
+- **Self-hosted** `public/qpdf.wasm` (1.3 MB, absolute-URL `locateFile`) → **fully
+  offline** on web (PWA precache) and in the app (bundled asset). New `text` param with
+  `password: true` renders a masked input.
+- **Verified in preview:** protect → output has `/Encrypt`; unlock with the right
+  password → `/Encrypt` gone, valid `%PDF-`; wrong password → rejected, no file.
+- Registry: `Protect` + `Unlock` for `pdf`; tool-grid cards.
+
 ### 2026-07-01 — Batch 2a: Background remover (on-device AI)
 - **Remove BG** for images ([`imageConverters.ts`](src/converters/imageConverters.ts)
   `removeImageBackground`): uses `@imgly/background-removal` (ONNX/WASM, onnxruntime-web)
