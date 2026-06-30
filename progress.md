@@ -83,6 +83,21 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-06-30 — Fix: OCR hung forever in the Android app
+- **Symptom:** image→text showed "working" indefinitely on the phone (worked fine on web).
+- **Root cause:** the English language data ships as `eng.traineddata.gz` and `imageToText`
+  requested it with `gzip: true`. But **Android's APK packager (AAPT) auto-decompresses
+  `.gz` assets and strips the extension** — inside the APK the file is plain
+  `eng.traineddata`. So on device Tesseract fetched a `.gz` that doesn't exist → 404 →
+  silent hang at "recognizing".
+- **Fix** ([`imageConverters.ts`](src/converters/imageConverters.ts)): `gzip: !Capacitor.isNativePlatform()`
+  — web serves the real `.gz` (gzip:true, 10.9 MB, lean); native requests the
+  AAPT-decompressed `eng.traineddata` (gzip:false). No repo bloat, no web regression.
+- **Verified:** on web, gzip:true reads "HELLO 123" (539 ms); forced gzip:false against an
+  uncompressed `eng.traineddata` reads "NATIVE 456" (288 ms) — the exact native path.
+  Confirmed the rebuilt APK contains `assets/public/tesseract/lang/eng.traineddata` (22.4 MB).
+- Rebuilt `MunnX-Convertor.apk` (21.2 MB).
+
 ### 2026-06-26 — "Save to device" on Android (MediaStore Downloads)
 - **Problem:** the share-only flow had no "save to Files" target on the user's
   device. **Fix:** a one-tap **Save to device** that writes the converted file

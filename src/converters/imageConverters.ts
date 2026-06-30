@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import type { ConversionResult, ParamValues, ProgressFn } from './types';
 import { addSuffix, formatBytes, pctSmaller, replaceExt, stripExt } from '../lib/strings';
 
@@ -149,13 +150,19 @@ export async function imageToText(file: File, onProgress?: ProgressFn): Promise<
   // Absolute URLs (with origin) so the blob worker can resolve them — root-
   // relative paths fail inside a blob: worker.
   const base = window.location.origin;
+  // The language data ships as eng.traineddata.gz. On the web that .gz is served
+  // as-is (gzip: true). But Android's APK packager (AAPT) auto-decompresses any
+  // .gz asset and strips the extension, so inside the native app the file is
+  // plain eng.traineddata — request it with gzip: false, or Tesseract fetches a
+  // .gz that doesn't exist and hangs forever at "recognizing".
+  const native = Capacitor.isNativePlatform();
   const { data } = await Tesseract.recognize(file, 'eng', {
     // Self-hosted worker / core / language data (in /public/tesseract) — OCR
     // never contacts a third-party CDN, so it works offline & fully private.
     workerPath: `${base}/tesseract/worker.min.js`,
     corePath: `${base}/tesseract`,
     langPath: `${base}/tesseract/lang`,
-    gzip: true,
+    gzip: !native,
     logger: (m: { status: string; progress: number }) => {
       if (m.status === 'recognizing text') onProgress?.(m.progress);
     },
