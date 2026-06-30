@@ -83,6 +83,16 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-07-01 — Batch 2c: Remove watermark (PDF layers/annotations)
+- **Remove watermark** for PDFs ([`pdfConverters.ts`](src/converters/pdfConverters.ts)
+  `removePdfWatermark`, pdf-lib): strips `/Watermark` annotations (a separate "layer").
+  Watermarks drawn into the page content stream (the common case) can't be removed
+  cleanly — those return the original with a clear explanatory note (as agreed: narrow,
+  honest scope).
+- **Verified in preview:** normal PDF → returns original + "no removable watermark" note;
+  a PDF with a `/Watermark` annotation → removed (output no longer contains `/Watermark`).
+- Registry: `Remove watermark` for `pdf`; tool-grid card.
+
 ### 2026-07-01 — Batch 2b: PDF password protect + unlock (qpdf-wasm)
 - **Protect** (add AES-256 password) and **Unlock** (remove a known password) for PDFs
   ([`pdfConverters.ts`](src/converters/pdfConverters.ts) `protectPdf` / `removePdfPassword`),

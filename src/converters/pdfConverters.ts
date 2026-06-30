@@ -285,6 +285,55 @@ export async function removePdfPassword(
   };
 }
 
+/**
+ * Remove watermarks that exist as separate /Watermark annotations (a "layer").
+ * Watermarks drawn directly into a page's content stream (the common case) can't
+ * be stripped cleanly — for those we return the original with a clear note.
+ */
+export async function removePdfWatermark(file: File): Promise<ConversionResult> {
+  const { PDFDocument, PDFName, PDFArray, PDFDict } = await import('pdf-lib');
+  const doc = await PDFDocument.load(new Uint8Array(await file.arrayBuffer()));
+  let removed = 0;
+
+  for (const page of doc.getPages()) {
+    const annots = page.node.Annots();
+    if (!annots) continue;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const keep: any[] = [];
+    for (let i = 0; i < annots.size(); i++) {
+      const ref = annots.get(i);
+      let subtype = '';
+      try {
+        const dict = page.node.context.lookup(ref, PDFDict);
+        subtype = dict.get(PDFName.of('Subtype'))?.toString() ?? '';
+      } catch {
+        /* unreadable annotation — keep it */
+      }
+      if (subtype === '/Watermark') removed++;
+      else keep.push(ref);
+    }
+    if (keep.length !== annots.size()) {
+      const arr = PDFArray.withContext(page.node.context);
+      keep.forEach((r) => arr.push(r));
+      page.node.set(PDFName.of('Annots'), arr);
+    }
+  }
+
+  if (removed === 0) {
+    return {
+      blob: file,
+      filename: file.name,
+      note: "No removable watermark layer found. This only removes watermarks added as a separate layer/annotation — if it's drawn into the page itself (the most common case), it can't be stripped cleanly.",
+    };
+  }
+  const out = await doc.save();
+  return {
+    blob: new Blob([out], { type: 'application/pdf' }),
+    filename: addSuffix(file.name, '-no-watermark'),
+    note: `Removed ${removed} watermark layer${removed === 1 ? '' : 's'}.`,
+  };
+}
+
 /** Stamp a text watermark across every page of a PDF (pdf-lib). */
 export async function watermarkPdf(
   file: File,

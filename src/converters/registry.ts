@@ -147,6 +147,7 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'pdf', label: 'Watermark', note: 'Stamp your text on every page', params: WATERMARK_PARAMS, run: (f, p, pv) => pdf.watermarkPdf(f, p, pv) },
     { target: 'pdf', label: 'Protect', note: 'Add a password (AES-256). It cannot be recovered if forgotten.', params: PROTECT_PARAMS, run: (f, p, pv) => pdf.protectPdf(f, p, pv) },
     { target: 'pdf', label: 'Unlock', note: 'Remove a password you already know', params: UNLOCK_PARAMS, run: (f, p, pv) => pdf.removePdfPassword(f, p, pv) },
+    { target: 'pdf', label: 'Remove watermark', note: 'Only removes separate watermark layers/annotations — not marks drawn into the page', run: (f) => pdf.removePdfWatermark(f) },
   ],
   docx: [
     { target: 'pdf', label: 'PDF', note: 'Text + headings; advanced styling simplified', run: (f) => doc.docxToPdf(f) },
