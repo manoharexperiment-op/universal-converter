@@ -83,6 +83,18 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-06-30 — Signed release APK
+- Added **release signing** ([`android/app/build.gradle`](android/app/build.gradle)):
+  reads `android/keystore.properties` (git-ignored) for storeFile/passwords/alias and
+  applies it to the `release` build type. Guarded by `hasReleaseKeystore` so debug
+  builds (and anyone without the key) still build fine.
+- **Secrets stay out of git:** `android/.gitignore` now excludes `keystore.properties`,
+  `*.jks`, `*.keystore`. The keystore (`munnx-release.jks`) lives only on the local machine.
+- Built `app-release.apk` (18.7 MB) with `gradlew assembleRelease`. **Verified signed:**
+  apksigner V2, certificate `CN=MunnX Convertor, O=MunnX, C=IN`. Copied to Desktop as
+  `MunnX-Convertor-release.apk`.
+- ⚠️ Keystore + password must be backed up — required for every future update / Play Store.
+
 ### 2026-06-30 — Professional UI redesign + visual tool grid
 - **Polished, more professional look** ([`App.css`](src/App.css), [`App.tsx`](src/App.tsx)):
   design tokens (color/radius/shadow vars), a **tool-card "panel"** wrapping the
