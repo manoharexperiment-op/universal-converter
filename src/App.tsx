@@ -28,6 +28,7 @@ const TOOLS: { icon: string; title: string; desc: string; tint: string }[] = [
   { icon: '🗜️', title: 'Compress', desc: 'Shrink images & PDFs', tint: 'teal' },
   { icon: '📐', title: 'Resize Image', desc: 'Exact size or %', tint: 'teal' },
   { icon: '💧', title: 'Watermark', desc: 'Text on images & PDF', tint: 'purple' },
+  { icon: '🪄', title: 'Remove BG', desc: 'AI cutout → transparent', tint: 'pink' },
   { icon: '📄', title: 'Image → PDF', desc: 'Combine into one PDF', tint: 'orange' },
   { icon: '🔤', title: 'Image → Text', desc: 'OCR, on-device', tint: 'green' },
   { icon: '📝', title: 'PDF → Word', desc: 'Editable .docx', tint: 'blue' },

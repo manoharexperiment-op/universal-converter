@@ -265,6 +265,28 @@ export async function watermarkImage(
   return { blob, filename: addSuffix(replaceExt(file.name, 'jpg'), '-watermarked') };
 }
 
+/**
+ * Remove an image's background on-device with an AI segmentation model
+ * (@imgly/background-removal — ONNX/WASM). The model (~40 MB) is fetched on first
+ * use, then cached. Output is a transparent PNG.
+ */
+export async function removeImageBackground(
+  file: File,
+  onProgress?: ProgressFn,
+): Promise<ConversionResult> {
+  const { removeBackground } = await import('@imgly/background-removal');
+  const blob = await removeBackground(file, {
+    progress: (_key: string, current: number, total: number) => {
+      if (total > 0) onProgress?.(Math.min(0.99, current / total));
+    },
+  });
+  return {
+    blob,
+    filename: addSuffix(replaceExt(file.name, 'png'), '-nobg'),
+    note: 'Background removed on-device — saved as a transparent PNG.',
+  };
+}
+
 /** Extract text from an image using on-device OCR (Tesseract.js / WASM). */
 export async function imageToText(file: File, onProgress?: ProgressFn): Promise<ConversionResult> {
   const Tesseract = (await import('tesseract.js')).default;

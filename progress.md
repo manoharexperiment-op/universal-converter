@@ -83,6 +83,18 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-07-01 — Batch 2a: Background remover (on-device AI)
+- **Remove BG** for images ([`imageConverters.ts`](src/converters/imageConverters.ts)
+  `removeImageBackground`): uses `@imgly/background-removal` (ONNX/WASM, onnxruntime-web)
+  to cut out the subject fully on-device → transparent PNG. Registered for `image`;
+  added a tool-grid card.
+- **Verified in preview:** on a subject-on-color test image the background corner came
+  out alpha 0 (transparent) and the subject center alpha 254 (kept); ~12 s with the
+  model cached. Build code-splits the `ort.*` chunks (lazy-loaded).
+- **Caveat:** first use downloads a ~40 MB model from a CDN (then cached) — needs
+  internet that first time; slower on phones. (Self-hosting/bundling the model for full
+  offline can be a later step, like we did for OCR.)
+
 ### 2026-06-30 — New tools (batch 1): Image resize + Watermark
 - **Image resizer** ([`imageConverters.ts`](src/converters/imageConverters.ts) `resizeImage`):
   exact W×H, keep-aspect ("fit") or "stretch", output JPG/PNG/WebP. Verified
