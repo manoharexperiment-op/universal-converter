@@ -23,15 +23,19 @@ const ICONS: Record<string, string> = {
   mp3: '🎵', wav: '🎵', m4a: '🎵', aac: '🎵', ogg: '🎵', flac: '🎵', opus: '🎵', wma: '🎵',
 };
 
-const SUPPORTED: { from: string; icon: string; to: string }[] = [
-  { from: 'Images', icon: '🖼️', to: 'PNG, JPG, WebP, PDF, Compress, OCR' },
-  { from: 'PDF', icon: '📄', to: 'PNG, JPG, Text, Word, Rotate, Split, Compress' },
-  { from: 'Word', icon: '📝', to: 'PDF, Text, HTML' },
-  { from: 'Excel / CSV', icon: '📊', to: 'CSV ↔ Excel' },
-  { from: 'Markdown / HTML / Text', icon: '📑', to: 'PDF, HTML' },
-  { from: 'Video', icon: '🎬', to: 'MP3, WAV, GIF, MP4, WebM, Compress' },
-  { from: 'Audio', icon: '🎵', to: 'MP3, WAV, Trim, Bitrate' },
-  { from: 'Multiple files', icon: '📚', to: 'Merge PDFs · Images → PDF · Merge audio' },
+const TOOLS: { icon: string; title: string; desc: string; tint: string }[] = [
+  { icon: '🖼️', title: 'Image Convert', desc: 'PNG · JPG · WebP · BMP', tint: 'blue' },
+  { icon: '🗜️', title: 'Compress', desc: 'Shrink images & PDFs', tint: 'teal' },
+  { icon: '📄', title: 'Image → PDF', desc: 'Combine into one PDF', tint: 'orange' },
+  { icon: '🔤', title: 'Image → Text', desc: 'OCR, on-device', tint: 'green' },
+  { icon: '📝', title: 'PDF → Word', desc: 'Editable .docx', tint: 'blue' },
+  { icon: '🖨️', title: 'PDF → Image', desc: 'Pages to PNG / JPG', tint: 'orange' },
+  { icon: '✂️', title: 'PDF Tools', desc: 'Split · Rotate · Merge', tint: 'red' },
+  { icon: '📊', title: 'Excel ↔ CSV', desc: 'Spreadsheets', tint: 'green' },
+  { icon: '🎬', title: 'Video Convert', desc: 'MP4 · WebM · GIF', tint: 'pink' },
+  { icon: '🎵', title: 'Audio Convert', desc: 'MP3 · WAV · trim', tint: 'purple' },
+  { icon: '📑', title: 'Docs → PDF', desc: 'Markdown · HTML · text', tint: 'blue' },
+  { icon: '📚', title: 'Merge Files', desc: 'PDFs · images · audio', tint: 'amber' },
 ];
 
 interface Action {
@@ -139,7 +143,7 @@ export default function App() {
     }
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ onDrop });
 
   const actions = useMemo<Action[]>(() => {
     if (files.length === 1) {
@@ -259,10 +263,16 @@ export default function App() {
       <header className="header">
         <img className="logo" src="/logo.png" alt="MunnX" />
         <p className="brand-sub">Convertor</p>
-        <p>Convert PDF, Word, Excel, images, audio &amp; video — free, no login, nothing uploaded.</p>
+        <p className="tagline">Convert PDF, Word, Excel, images, audio &amp; video — right on your device.</p>
+        <ul className="badges">
+          <li>🔒 Private</li>
+          <li>💯 Free</li>
+          <li>⚡ No login</li>
+        </ul>
       </header>
 
       <main className="main">
+        <section className="panel">
         <div
           {...getRootProps()}
           className={`dropzone ${isDragActive ? 'active' : ''} ${files.length ? 'has-file' : ''}`}
@@ -378,15 +388,18 @@ export default function App() {
           </div>
         )}
 
-        <section className="supported">
-          <h3>Supported conversions</h3>
-          <div className="supported-list">
-            {SUPPORTED.map((row) => (
-              <div className="supported-row" key={row.from}>
-                <span className="from">{row.icon} {row.from}</span>
-                <span className="arrow">→</span>
-                <span className="to">{row.to}</span>
-              </div>
+        </section>
+
+        <section className="tools">
+          <h3>One app, every file</h3>
+          <p className="tools-sub">Images, PDFs, documents, audio &amp; video — converted right on your device.</p>
+          <div className="tools-grid">
+            {TOOLS.map((t) => (
+              <button className="tool-card" key={t.title} onClick={open} title={`${t.title} — ${t.desc}`}>
+                <span className={`tool-icon tint-${t.tint}`}>{t.icon}</span>
+                <span className="tool-title">{t.title}</span>
+                <span className="tool-desc">{t.desc}</span>
+              </button>
             ))}
           </div>
         </section>

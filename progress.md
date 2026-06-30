@@ -83,6 +83,22 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-06-30 — Professional UI redesign + visual tool grid
+- **Polished, more professional look** ([`App.css`](src/App.css), [`App.tsx`](src/App.tsx)):
+  design tokens (color/radius/shadow vars), a **tool-card "panel"** wrapping the
+  converter, trust badges (Private · Free · No login), refined dropzone (soft dashed
+  blue, green compact selected state), gradient-selected format chips, depth on the
+  orange Convert button, blue focus rings on inputs, uppercase section labels.
+- **Replaced the text "Supported conversions" list with a colorful tool-card grid**
+  (like iLovePDF/SmallPDF, but covering our all-in-one range): 12 cards, each a
+  tinted icon tile + title + one-line description (`TOOLS` array). Cards are
+  clickable and call react-dropzone's `open()` to start a conversion.
+- **Verified in preview:** 12 cards render in a responsive grid, panel/badges/logo
+  present, app mounts clean after reload with no console errors. `npm run build`
+  (web/PWA) passes. (Pre-existing `Uint8Array`→`BlobPart` tsc strictness warnings
+  remain; non-blocking, unrelated to UI.)
+- Pushed to Vercel (website) + rebuilt the APK.
+
 ### 2026-06-30 — Fix: OCR hung forever in the Android app
 - **Symptom:** image→text showed "working" indefinitely on the phone (worked fine on web).
 - **Root cause:** the English language data ships as `eng.traineddata.gz` and `imageToText`
