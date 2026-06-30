@@ -5,6 +5,7 @@ import type { ConversionResult, ParamControl, ParamValues, ProgressFn } from './
 import { defaultsOf } from './converters/types';
 import { mergePdfs, imagesToPdf, mergeAudio } from './converters/batchConverters';
 import { onFFmpegStatus, terminateFFmpeg } from './converters/mediaConverters';
+import { SignaturePad } from './SignaturePad';
 import {
   isNativePlatform,
   isAndroidApp,
@@ -29,6 +30,7 @@ const TOOLS: { icon: string; title: string; desc: string; tint: string }[] = [
   { icon: '📐', title: 'Resize Image', desc: 'Exact size or %', tint: 'teal' },
   { icon: '💧', title: 'Watermark', desc: 'Text on images & PDF', tint: 'purple' },
   { icon: '🪄', title: 'Remove BG', desc: 'AI cutout → transparent', tint: 'pink' },
+  { icon: '✍️', title: 'Sign & Date', desc: 'Sign photos & PDFs', tint: 'blue' },
   { icon: '📄', title: 'Image → PDF', desc: 'Combine into one PDF', tint: 'orange' },
   { icon: '🔤', title: 'Image → Text', desc: 'OCR, on-device', tint: 'green' },
   { icon: '📝', title: 'PDF → Word', desc: 'Editable .docx', tint: 'blue' },
@@ -80,6 +82,14 @@ function ActionParams({
     <div className="params">
       {params.map((c) => {
         const v = values[c.key] ?? c.default;
+        if (c.kind === 'signature') {
+          return (
+            <div className="param-row param-full" key={c.key}>
+              <span className="param-label">{c.label}</span>
+              <SignaturePad value={String(v)} onChange={(val) => onChange(c.key, val)} />
+            </div>
+          );
+        }
         return (
           <label className="param-row" key={c.key}>
             <span className="param-label">{c.label}</span>

@@ -334,6 +334,50 @@ export async function removePdfWatermark(file: File): Promise<ConversionResult> 
   };
 }
 
+/** Place a signature image (and optional today's date) onto a PDF page (pdf-lib). */
+export async function signPdf(
+  file: File,
+  _onProgress?: ProgressFn,
+  params?: ParamValues,
+): Promise<ConversionResult> {
+  const sig = String(params?.signature ?? '');
+  if (!sig.startsWith('data:image')) throw new Error('Draw or upload your signature first.');
+  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const position = String(params?.position ?? 'bottom-right');
+  const sizePct = Math.max(5, Number(params?.size ?? 25));
+  const withDate = String(params?.date ?? 'today') === 'today';
+  const pageNum = Math.max(1, Math.round(Number(params?.page ?? 1)));
+
+  const doc = await PDFDocument.load(new Uint8Array(await file.arrayBuffer()));
+  const pages = doc.getPages();
+  const page = pages[Math.min(pageNum, pages.length) - 1];
+  const { width, height } = page.getSize();
+
+  const pngBytes = new Uint8Array(await (await fetch(sig)).arrayBuffer());
+  const png = await doc.embedPng(pngBytes);
+  const sw = (sizePct / 100) * width;
+  const sh = sw * (png.height / png.width);
+  const margin = Math.min(width, height) * 0.03;
+  const right = position.includes('right');
+  const bottom = position.includes('bottom');
+  const sx = right ? width - sw - margin : margin;
+  const sy = bottom ? margin : height - sh - margin;
+  page.drawImage(png, { x: sx, y: sy, width: sw, height: sh });
+
+  if (withDate) {
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const date = new Date().toLocaleDateString();
+    const fs = Math.max(8, sw * 0.1);
+    const tw = font.widthOfTextAtSize(date, fs);
+    const dx = right ? sx + sw - tw : sx;
+    const dy = bottom ? sy + sh + 3 : sy - fs - 3;
+    page.drawText(date, { x: dx, y: dy, size: fs, font, color: rgb(0.1, 0.1, 0.2) });
+  }
+
+  const out = await doc.save();
+  return { blob: new Blob([out], { type: 'application/pdf' }), filename: addSuffix(file.name, '-signed') };
+}
+
 /** Stamp a text watermark across every page of a PDF (pdf-lib). */
 export async function watermarkPdf(
   file: File,

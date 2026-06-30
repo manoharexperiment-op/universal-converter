@@ -79,6 +79,32 @@ const RESIZE_PARAMS: ParamControl[] = [
     ],
   },
 ];
+const SIGN_BASE: ParamControl[] = [
+  { kind: 'signature', key: 'signature', label: 'Your signature', default: '' },
+  {
+    kind: 'select', key: 'position', label: 'Position', default: 'bottom-right',
+    options: [
+      { value: 'bottom-right', label: 'Bottom-right' },
+      { value: 'bottom-left', label: 'Bottom-left' },
+      { value: 'top-right', label: 'Top-right' },
+      { value: 'top-left', label: 'Top-left' },
+    ],
+  },
+  { kind: 'range', key: 'size', label: 'Size', default: 25, min: 8, max: 60, step: 1, unit: '%' },
+  {
+    kind: 'select', key: 'date', label: 'Add date', default: 'today',
+    options: [
+      { value: 'today', label: "Today's date" },
+      { value: 'none', label: 'No date' },
+    ],
+  },
+];
+const SIGN_IMG_PARAMS: ParamControl[] = SIGN_BASE;
+const SIGN_PDF_PARAMS: ParamControl[] = [
+  SIGN_BASE[0],
+  { kind: 'number', key: 'page', label: 'Page #', default: 1, min: 1, max: 9999, step: 1 },
+  ...SIGN_BASE.slice(1),
+];
 const PROTECT_PARAMS: ParamControl[] = [
   { kind: 'text', key: 'password', label: 'New password', default: '', placeholder: 'Choose a password', password: true },
 ];
@@ -133,6 +159,7 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'jpg', label: 'Resize', note: 'Set an exact width/height — keep the aspect ratio or stretch', params: RESIZE_PARAMS, run: (f, p, pv) => img.resizeImage(f, p, pv) },
     { target: 'jpg', label: 'Watermark', note: 'Stamp your text over the image', params: WATERMARK_PARAMS, run: (f, p, pv) => img.watermarkImage(f, p, pv) },
     { target: 'png', label: 'Remove BG', note: 'AI cutout on-device — first use downloads a ~40MB model; slower on phones. Output is a transparent PNG.', run: (f, p) => img.removeImageBackground(f, p) },
+    { target: 'jpg', label: 'Sign & date', note: 'Draw your signature and place it on the photo', params: SIGN_IMG_PARAMS, run: (f, p, pv) => img.signPhoto(f, p, pv) },
     { target: 'pdf', label: 'PDF', run: (f) => img.imageToPdf(f) },
     { target: 'txt', label: 'Text (OCR)', note: 'Reads text out of the image on-device', run: (f, p) => img.imageToText(f, p) },
   ],
@@ -148,6 +175,7 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'pdf', label: 'Protect', note: 'Add a password (AES-256). It cannot be recovered if forgotten.', params: PROTECT_PARAMS, run: (f, p, pv) => pdf.protectPdf(f, p, pv) },
     { target: 'pdf', label: 'Unlock', note: 'Remove a password you already know', params: UNLOCK_PARAMS, run: (f, p, pv) => pdf.removePdfPassword(f, p, pv) },
     { target: 'pdf', label: 'Remove watermark', note: 'Only removes separate watermark layers/annotations — not marks drawn into the page', run: (f) => pdf.removePdfWatermark(f) },
+    { target: 'pdf', label: 'Sign & date', note: 'Draw your signature and place it on a page', params: SIGN_PDF_PARAMS, run: (f, p, pv) => pdf.signPdf(f, p, pv) },
   ],
   docx: [
     { target: 'pdf', label: 'PDF', note: 'Text + headings; advanced styling simplified', run: (f) => doc.docxToPdf(f) },

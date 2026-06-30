@@ -83,6 +83,19 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-07-01 — Batch 2d: Sign & date (photos + PDFs)
+- **Sign & date** for images ([`imageConverters.ts`](src/converters/imageConverters.ts)
+  `signPhoto`, Canvas) and PDFs ([`pdfConverters.ts`](src/converters/pdfConverters.ts)
+  `signPdf`, pdf-lib): draw a signature on a pad (or upload one), place it at a chosen
+  corner/size with an optional today's-date stamp. Electronic placement (no PKI).
+- **New `signature` param kind** ([`types.ts`](src/converters/types.ts)) rendered by a
+  new [`SignaturePad.tsx`](src/SignaturePad.tsx) component (pointer-draw canvas →
+  transparent PNG data URL, Clear + Upload). `ActionParams` renders it full-width.
+- PDF version takes a Page # param; date text gets a white halo on photos for legibility.
+- **Verified in preview:** signed JPG + signed `%PDF-` produced; empty-signature guard
+  rejects with a clear message; app mounts clean, Sign & date in both registries.
+- **Batch 2 complete** — rebuilt the signed release APK with all new tools.
+
 ### 2026-07-01 — Batch 2c: Remove watermark (PDF layers/annotations)
 - **Remove watermark** for PDFs ([`pdfConverters.ts`](src/converters/pdfConverters.ts)
   `removePdfWatermark`, pdf-lib): strips `/Watermark` annotations (a separate "layer").

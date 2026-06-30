@@ -265,6 +265,66 @@ export async function watermarkImage(
   return { blob, filename: addSuffix(replaceExt(file.name, 'jpg'), '-watermarked') };
 }
 
+/** Load an <img> from any src string (e.g. a data URL signature). */
+function loadImageSrc(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Could not load the signature image.'));
+    img.src = src;
+  });
+}
+
+/** Stamp a signature image (and optional today's date) onto a photo via Canvas. */
+export async function signPhoto(
+  file: File,
+  _onProgress?: ProgressFn,
+  params?: ParamValues,
+): Promise<ConversionResult> {
+  const sig = String(params?.signature ?? '');
+  if (!sig.startsWith('data:image')) throw new Error('Draw or upload your signature first.');
+  const position = String(params?.position ?? 'bottom-right');
+  const sizePct = Math.max(5, Number(params?.size ?? 25));
+  const withDate = String(params?.date ?? 'today') === 'today';
+
+  const [img, sigImg] = await Promise.all([loadImage(file), loadImageSrc(sig)]);
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas is not available in this browser.');
+  ctx.drawImage(img, 0, 0);
+
+  const sw = (sizePct / 100) * w;
+  const sh = sw * (sigImg.naturalHeight / Math.max(1, sigImg.naturalWidth));
+  const margin = Math.round(Math.min(w, h) * 0.03);
+  const right = position.includes('right');
+  const bottom = position.includes('bottom');
+  const sx = right ? w - sw - margin : margin;
+  const sy = bottom ? h - sh - margin : margin;
+  ctx.drawImage(sigImg, sx, sy, sw, sh);
+
+  if (withDate) {
+    const date = new Date().toLocaleDateString();
+    const fs = Math.max(12, Math.round(sw * 0.13));
+    ctx.font = `${fs}px sans-serif`;
+    ctx.textAlign = right ? 'right' : 'left';
+    ctx.textBaseline = 'alphabetic';
+    const dx = right ? sx + sw : sx;
+    const dy = bottom ? sy - 6 : sy + sh + fs + 2;
+    ctx.lineWidth = Math.max(2, fs / 8);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; // halo for legibility on any photo
+    ctx.strokeText(date, dx, dy);
+    ctx.fillStyle = '#0a1228';
+    ctx.fillText(date, dx, dy);
+  }
+
+  const blob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
+  return { blob, filename: addSuffix(replaceExt(file.name, 'jpg'), '-signed') };
+}
+
 /**
  * Remove an image's background on-device with an AI segmentation model
  * (@imgly/background-removal — ONNX/WASM). The model (~40 MB) is fetched on first
