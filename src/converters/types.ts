@@ -23,7 +23,8 @@ export type ParamControl =
       unit?: string;
     }
   | { kind: 'number'; key: string; label: string; default: number; min?: number; max?: number; step?: number; unit?: string }
-  | { kind: 'range'; key: string; label: string; default: number; min: number; max: number; step?: number; unit?: string };
+  | { kind: 'range'; key: string; label: string; default: number; min: number; max: number; step?: number; unit?: string }
+  | { kind: 'text'; key: string; label: string; default: string; placeholder?: string; password?: boolean };
 
 /** A conversion function. Always async; may report progress; may take params. */
 export type ConvertFn = (file: File, onProgress?: ProgressFn, params?: ParamValues) => Promise<ConversionResult>;

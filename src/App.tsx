@@ -26,6 +26,8 @@ const ICONS: Record<string, string> = {
 const TOOLS: { icon: string; title: string; desc: string; tint: string }[] = [
   { icon: '🖼️', title: 'Image Convert', desc: 'PNG · JPG · WebP · BMP', tint: 'blue' },
   { icon: '🗜️', title: 'Compress', desc: 'Shrink images & PDFs', tint: 'teal' },
+  { icon: '📐', title: 'Resize Image', desc: 'Exact size or %', tint: 'teal' },
+  { icon: '💧', title: 'Watermark', desc: 'Text on images & PDF', tint: 'purple' },
   { icon: '📄', title: 'Image → PDF', desc: 'Combine into one PDF', tint: 'orange' },
   { icon: '🔤', title: 'Image → Text', desc: 'OCR, on-device', tint: 'green' },
   { icon: '📝', title: 'PDF → Word', desc: 'Editable .docx', tint: 'blue' },
@@ -89,6 +91,13 @@ function ActionParams({
                   <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
                 ))}
               </select>
+            ) : c.kind === 'text' ? (
+              <input
+                type={c.password ? 'password' : 'text'}
+                value={String(v)}
+                placeholder={c.placeholder}
+                onChange={(e) => onChange(c.key, e.target.value)}
+              />
             ) : (
               <span className="param-num">
                 <input

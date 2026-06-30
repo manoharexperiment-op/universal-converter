@@ -83,6 +83,21 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-06-30 — New tools (batch 1): Image resize + Watermark
+- **Image resizer** ([`imageConverters.ts`](src/converters/imageConverters.ts) `resizeImage`):
+  exact W×H, keep-aspect ("fit") or "stretch", output JPG/PNG/WebP. Verified
+  800×600 → 400×300 (fit) and 300×300 (stretch).
+- **Watermark** — add text over images (`watermarkImage`, Canvas) and across every
+  PDF page ([`pdfConverters.ts`](src/converters/pdfConverters.ts) `watermarkPdf`,
+  pdf-lib). Styles: diagonal / tiled / center / bottom-right; opacity; size.
+  Verified both produce valid output.
+- **New `text` param kind** ([`types.ts`](src/converters/types.ts) + `ActionParams`
+  in [`App.tsx`](src/App.tsx)) for the free-text watermark field (reused later for
+  the PDF password). Registry wires Resize + Watermark into `image`, Watermark into
+  `pdf`; added tool-grid cards. Verified in preview; `build:app` passes.
+- Batch 2 (PDF password protect/remove via qpdf-wasm, Sign & date) is next; the APK
+  will be rebuilt once both batches land.
+
 ### 2026-06-30 — Signed release APK
 - Added **release signing** ([`android/app/build.gradle`](android/app/build.gradle)):
   reads `android/keystore.properties` (git-ignored) for storeFile/passwords/alias and

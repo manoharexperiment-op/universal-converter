@@ -216,6 +216,51 @@ export async function pdfSplit(file: File, onProgress?: ProgressFn): Promise<Con
   return { blob, filename: `${stripExt(file.name)}_pages.zip` };
 }
 
+/** Stamp a text watermark across every page of a PDF (pdf-lib). */
+export async function watermarkPdf(
+  file: File,
+  _onProgress?: ProgressFn,
+  params?: ParamValues,
+): Promise<ConversionResult> {
+  const { PDFDocument, StandardFonts, rgb, degrees } = await import('pdf-lib');
+  const text = String(params?.text ?? '').trim() || 'WATERMARK';
+  const opacity = Math.max(0.03, Math.min(1, Number(params?.opacity ?? 35) / 100));
+  const position = String(params?.position ?? 'diagonal');
+
+  const doc = await PDFDocument.load(new Uint8Array(await file.arrayBuffer()));
+  const font = await doc.embedFont(StandardFonts.HelveticaBold);
+  const base = { font, color: rgb(0.5, 0.5, 0.5), opacity };
+
+  for (const page of doc.getPages()) {
+    const { width, height } = page.getSize();
+    const min = Math.min(width, height);
+    if (position === 'center') {
+      const size = Math.max(14, min * 0.07);
+      page.drawText(text, { ...base, size, x: (width - font.widthOfTextAtSize(text, size)) / 2, y: height / 2 });
+    } else if (position === 'bottom-right') {
+      const size = Math.max(10, min * 0.035);
+      page.drawText(text, { ...base, size, x: width - font.widthOfTextAtSize(text, size) - 24, y: 24 });
+    } else if (position === 'tile') {
+      const size = Math.max(10, min * 0.035);
+      const tw = font.widthOfTextAtSize(text, size);
+      const stepX = tw + size * 4;
+      const stepY = size * 6;
+      for (let y = 0; y < height + stepY; y += stepY) {
+        for (let x = -tw; x < width; x += stepX) page.drawText(text, { ...base, size, x, y, rotate: degrees(35) });
+      }
+    } else {
+      const size = Math.max(18, min * 0.08);
+      page.drawText(text, { ...base, size, x: width * 0.12, y: height * 0.32, rotate: degrees(40) });
+    }
+  }
+
+  const out = await doc.save();
+  return {
+    blob: new Blob([out], { type: 'application/pdf' }),
+    filename: addSuffix(file.name, '-watermarked'),
+  };
+}
+
 /** Group pdf.js text items into visual lines by their y-coordinate. */
 function linesFromItems(items: unknown[]): string[] {
   const rows = new Map<number, { x: number; str: string }[]>();

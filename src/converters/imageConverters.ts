@@ -144,6 +144,127 @@ export async function compressImage(
   };
 }
 
+/**
+ * Resize an image to a target width/height. "fit" keeps the aspect ratio
+ * (scaling by whichever of width/height is given); "stretch" forces exact W×H.
+ */
+export async function resizeImage(
+  file: File,
+  _onProgress?: ProgressFn,
+  params?: ParamValues,
+): Promise<ConversionResult> {
+  const reqW = Math.max(0, Math.round(Number(params?.width ?? 0)));
+  const reqH = Math.max(0, Math.round(Number(params?.height ?? 0)));
+  const mode = String(params?.mode ?? 'fit');
+  const format = String(params?.format ?? 'jpeg');
+
+  const img = await loadImage(file);
+  const iw = img.naturalWidth;
+  const ih = img.naturalHeight;
+
+  let w: number;
+  let h: number;
+  if (mode === 'stretch' && reqW > 0 && reqH > 0) {
+    w = reqW;
+    h = reqH;
+  } else {
+    let scale: number | null = null;
+    if (reqW > 0 && reqH > 0) scale = Math.min(reqW / iw, reqH / ih);
+    else if (reqW > 0) scale = reqW / iw;
+    else if (reqH > 0) scale = reqH / ih;
+    if (scale == null) {
+      return { blob: file, filename: file.name, note: 'Enter a width and/or height to resize.' };
+    }
+    w = Math.max(1, Math.round(iw * scale));
+    h = Math.max(1, Math.round(ih * scale));
+  }
+
+  const usePng = format === 'png';
+  const useWebp = format === 'webp';
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { alpha: usePng || useWebp });
+  if (!ctx) throw new Error('Canvas is not available in this browser.');
+  if (!usePng && !useWebp) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+  }
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const mime = usePng ? 'image/png' : useWebp ? 'image/webp' : 'image/jpeg';
+  const ext = usePng ? 'png' : useWebp ? 'webp' : 'jpg';
+  const blob = await canvasToBlob(canvas, mime, 0.92);
+  return {
+    blob,
+    filename: addSuffix(replaceExt(file.name, ext), `-${w}x${h}`),
+    note: `Resized ${iw}×${ih} → ${w}×${h}.`,
+  };
+}
+
+/** Stamp a text watermark onto an image via the Canvas API. */
+export async function watermarkImage(
+  file: File,
+  _onProgress?: ProgressFn,
+  params?: ParamValues,
+): Promise<ConversionResult> {
+  const text = (String(params?.text ?? '').trim() || 'WATERMARK');
+  const opacity = Math.max(0.03, Math.min(1, Number(params?.opacity ?? 35) / 100));
+  const position = String(params?.position ?? 'diagonal');
+  const sizePct = Math.max(2, Number(params?.size ?? 6));
+
+  const img = await loadImage(file);
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas is not available in this browser.');
+  ctx.drawImage(img, 0, 0);
+
+  // Font scales with the image so it reads consistently at any resolution.
+  const fontPx = Math.max(10, Math.round((sizePct / 100) * Math.min(w, h)));
+  ctx.font = `bold ${fontPx}px sans-serif`;
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = Math.max(1, fontPx / 22);
+  ctx.globalAlpha = opacity;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const stamp = (x: number, y: number) => {
+    ctx.strokeText(text, x, y);
+    ctx.fillText(text, x, y);
+  };
+
+  if (position === 'diagonal' || position === 'tile') {
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate(-Math.PI / 6);
+    if (position === 'diagonal') {
+      stamp(0, 0);
+    } else {
+      const diag = Math.sqrt(w * w + h * h);
+      const stepX = ctx.measureText(text).width + fontPx * 1.5;
+      const stepY = fontPx * 2.6;
+      for (let y = -diag; y < diag; y += stepY) {
+        for (let x = -diag; x < diag; x += stepX) stamp(x, y);
+      }
+    }
+    ctx.restore();
+  } else if (position === 'center') {
+    stamp(w / 2, h / 2);
+  } else {
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    stamp(w - fontPx * 0.5, h - fontPx * 0.5);
+  }
+
+  const blob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
+  return { blob, filename: addSuffix(replaceExt(file.name, 'jpg'), '-watermarked') };
+}
+
 /** Extract text from an image using on-device OCR (Tesseract.js / WASM). */
 export async function imageToText(file: File, onProgress?: ProgressFn): Promise<ConversionResult> {
   const Tesseract = (await import('tesseract.js')).default;
