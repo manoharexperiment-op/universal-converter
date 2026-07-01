@@ -83,6 +83,22 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-07-02 — Background remover rebuilt: offline + MIT + WebView-safe
+- **Replaced `@imgly/background-removal`** — it is **AGPL-3.0** (a licensing blocker for
+  distributing a closed-source app) *and* fetched its model from a CDN at runtime, which
+  failed in the Android WebView.
+- **New:** MIT-licensed **`@bunnio/rembg-web`** + **`onnxruntime-web`** with the small
+  **u2netp** model (Apache-2.0). Everything is **self-hosted**: `public/models/u2netp.onnx`
+  (4.5 MB) and `public/ort/ort-wasm-simd-threaded.wasm` (13.5 MB) — no CDN, works offline.
+- **WebView-safe config** ([`imageConverters.ts`](src/converters/imageConverters.ts)):
+  `ort.env.wasm.wasmPaths` → self-hosted, `ort.env.wasm.numThreads = 1` (single-threaded,
+  so no SharedArrayBuffer / COOP-COEP needed — the exact thing that broke the CDN library).
+  Vite aliases `onnxruntime-web` → its wasm-only build (13.5 MB wasm, not the 27 MB WebGPU
+  one). `newSession('u2netp')` is awaited (returns a Promise); `postProcessMask` for cleaner edges.
+- **Verified in preview:** subject-on-color test → background corner alpha 0, subject center
+  alpha 255, ~4 s (faster than before), no errors. PWA runtime-caches `/ort/` + `/models/`
+  for web-offline; native bundles them in the APK.
+
 ### 2026-07-01 — Batch 2d: Sign & date (photos + PDFs)
 - **Sign & date** for images ([`imageConverters.ts`](src/converters/imageConverters.ts)
   `signPhoto`, Canvas) and PDFs ([`pdfConverters.ts`](src/converters/pdfConverters.ts)

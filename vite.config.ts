@@ -69,6 +69,17 @@ export default defineConfig(({ mode }) => {
                       cacheableResponse: { statuses: [0, 200] },
                     },
                   },
+                  {
+                    // Background-removal model + onnxruntime wasm (too big to precache) →
+                    // cache on first use so web works offline afterwards.
+                    urlPattern: ({ url }) => url.pathname.startsWith('/ort/') || url.pathname.startsWith('/models/'),
+                    handler: 'CacheFirst',
+                    options: {
+                      cacheName: 'bg-remove-assets',
+                      expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 90 },
+                      cacheableResponse: { statuses: [0, 200] },
+                    },
+                  },
                 ],
               },
               devOptions: { enabled: false },
@@ -78,6 +89,12 @@ export default defineConfig(({ mode }) => {
     // @ffmpeg/* spawns a worker via `new URL(..., import.meta.url)`; excluding it
     // from esbuild pre-bundling keeps that reference intact. (pdf.js/Tesseract do
     // NOT need this — they pre-bundle fine and load faster when they do.)
+    // Use onnxruntime-web's WASM-only build (13.5 MB simd wasm) instead of the
+    // default JSEP/WebGPU build (27 MB wasm). Exact-match regex so the subpath
+    // 'onnxruntime-web/wasm' itself isn't re-aliased. Applies to rembg-web too.
+    resolve: {
+      alias: [{ find: /^onnxruntime-web$/, replacement: 'onnxruntime-web/wasm' }],
+    },
     optimizeDeps: {
       exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
     },

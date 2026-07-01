@@ -326,18 +326,34 @@ export async function signPhoto(
 }
 
 /**
- * Remove an image's background on-device with an AI segmentation model
- * (@imgly/background-removal — ONNX/WASM). The model (~40 MB) is fetched on first
- * use, then cached. Output is a transparent PNG.
+ * Remove an image's background on-device (transparent PNG out).
+ *
+ * Uses the MIT-licensed rembg-web + onnxruntime-web with the small u2netp model.
+ * EVERYTHING is self-hosted: the model (/models/u2netp.onnx) and the ONNX-runtime
+ * wasm (/ort/), and ORT is forced to single-threaded — so it needs no CDN, works
+ * fully offline, and runs inside the Android WebView without SharedArrayBuffer /
+ * COOP-COEP (the thing that broke the previous CDN-based library).
  */
 export async function removeImageBackground(
   file: File,
   onProgress?: ProgressFn,
 ): Promise<ConversionResult> {
-  const { removeBackground } = await import('@imgly/background-removal');
-  const blob = await removeBackground(file, {
-    progress: (_key: string, current: number, total: number) => {
-      if (total > 0) onProgress?.(Math.min(0.99, current / total));
+  const base = window.location.origin;
+
+  // Configure the shared onnxruntime-web instance BEFORE rembg creates a session.
+  const ort = await import('onnxruntime-web');
+  ort.env.wasm.wasmPaths = `${base}/ort/`;
+  ort.env.wasm.numThreads = 1;
+
+  const { remove, newSession, rembgConfig } = await import('@bunnio/rembg-web');
+  rembgConfig.setCustomModelPath('u2netp', `${base}/models/u2netp.onnx`);
+
+  const session = await newSession('u2netp');
+  const blob = await remove(file, {
+    session,
+    postProcessMask: true,
+    onProgress: (info: { progress: number }) => {
+      if (typeof info.progress === 'number') onProgress?.(Math.min(0.99, info.progress / 100));
     },
   });
   return {
