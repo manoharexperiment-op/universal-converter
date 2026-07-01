@@ -72,7 +72,7 @@ export default defineConfig(({ mode }) => {
                   {
                     // Background-removal model + onnxruntime wasm (too big to precache) →
                     // cache on first use so web works offline afterwards.
-                    urlPattern: ({ url }) => url.pathname.startsWith('/ort/') || url.pathname.startsWith('/models/'),
+                    urlPattern: ({ url }) => url.pathname.startsWith('/models/') || /ort-wasm.*\.wasm$/.test(url.pathname),
                     handler: 'CacheFirst',
                     options: {
                       cacheName: 'bg-remove-assets',

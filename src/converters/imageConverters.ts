@@ -341,8 +341,11 @@ export async function removeImageBackground(
   const base = window.location.origin;
 
   // Configure the shared onnxruntime-web instance BEFORE rembg creates a session.
+  // Force single-threaded so it runs in the WebView without SharedArrayBuffer /
+  // COOP-COEP. The wasm itself is bundled by Vite (its URL resolves via
+  // import.meta.url to a same-origin asset) — so it's offline with no CDN and
+  // no duplicate copy.
   const ort = await import('onnxruntime-web');
-  ort.env.wasm.wasmPaths = `${base}/ort/`;
   ort.env.wasm.numThreads = 1;
 
   const { remove, newSession, rembgConfig } = await import('@bunnio/rembg-web');
