@@ -45,7 +45,9 @@ export default defineConfig(({ mode }) => {
                 // the first visit. EXCLUDE the big self-hosted OCR assets — they'd bloat
                 // the install; they're runtime-cached on first OCR use instead.
                 globPatterns: ['**/*.{js,mjs,css,html,svg,ico,woff2,wasm}'],
-                globIgnores: ['**/tesseract/**'],
+                // Keep big engines OUT of the precache (they'd blow the size limit and
+                // fail `vite build`). They're runtime-cached on first use instead.
+                globIgnores: ['**/tesseract/**', '**/ort-wasm-simd-threaded*.wasm'],
                 maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
                 navigateFallback: '/index.html',
                 runtimeCaching: [

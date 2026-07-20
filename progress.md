@@ -83,6 +83,19 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-07-02 — Fix: Vercel web deploys were failing (stuck since Batch 1)
+- **Symptom:** the APK had all features but the website was frozen at commit `481c88b`
+  (resize + watermark) — every Vercel deploy since **failed** (`state: ERROR`).
+- **Root cause:** `npm run build` (web, PWA on) errors because the onnxruntime **wasm**
+  (23.9 MB with @imgly, 13.5 MB with rembg) exceeds the PWA precache size limit, and
+  vite-plugin-pwa turns "asset too big to precache" into a hard build error → exit 1.
+  I never caught it because locally I only ran `build:app` (capacitor mode, PWA OFF).
+- **Fix** ([`vite.config.ts`](vite.config.ts)): add `**/ort-wasm-simd-threaded*.wasm` to
+  workbox `globIgnores` so the big engine isn't precached (it's runtime-cached on first
+  use). Verified with the real **`npm run build`** — passes, PWA generates 32 precache
+  entries, no error. **Going forward: run `npm run build` (not just `build:app`) before
+  pushing**, so the Vercel-equivalent build is validated.
+
 ### 2026-07-02 — Background remover rebuilt: offline + MIT + WebView-safe
 - **Replaced `@imgly/background-removal`** — it is **AGPL-3.0** (a licensing blocker for
   distributing a closed-source app) *and* fetched its model from a CDN at runtime, which
