@@ -1,13 +1,10 @@
 import type { ConversionResult, ParamValues, ProgressFn } from './types';
 import { replaceExt } from '../lib/strings';
 
-// Single-threaded ffmpeg core: no SharedArrayBuffer, so NO cross-origin
-// isolation (COOP/COEP) is required — which keeps the in-browser OCR working.
-// Pinned to a version compatible with @ffmpeg/ffmpeg 0.12.x.
-const CORE_VERSION = '0.12.6';
-// ESM build: @ffmpeg/ffmpeg's class worker is a module worker, so it loads the
-// core via dynamic import() (not importScripts) — the UMD build fails there.
-const CORE_BASE = `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/esm`;
+// Single-threaded ffmpeg core (@ffmpeg/core 0.12.6, ESM build), SELF-HOSTED in
+// /public/ffmpeg — no CDN, so video/audio work fully offline. Single-threaded =
+// no SharedArrayBuffer, so no COOP/COEP needed (OCR keeps working). The class
+// worker is a module worker that imports the core via dynamic import().
 
 // In-browser transcoding loads the whole file into a 32-bit wasm heap; large
 // inputs blow the ~2 GB ceiling and hard-crash the tab. Refuse them up front.
@@ -29,6 +26,7 @@ async function getFFmpeg() {
       const { FFmpeg } = await import('@ffmpeg/ffmpeg');
       const { toBlobURL } = await import('@ffmpeg/util');
       const ffmpeg = new FFmpeg();
+      const CORE_BASE = `${window.location.origin}/ffmpeg`;
       await ffmpeg.load({
         coreURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.js`, 'text/javascript'),
         wasmURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.wasm`, 'application/wasm'),

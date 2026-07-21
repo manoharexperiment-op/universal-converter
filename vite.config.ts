@@ -47,7 +47,7 @@ export default defineConfig(({ mode }) => {
                 globPatterns: ['**/*.{js,mjs,css,html,svg,ico,woff2,wasm}'],
                 // Keep big engines OUT of the precache (they'd blow the size limit and
                 // fail `vite build`). They're runtime-cached on first use instead.
-                globIgnores: ['**/tesseract/**', '**/ort-wasm-simd-threaded*.wasm'],
+                globIgnores: ['**/tesseract/**', '**/ort-wasm-simd-threaded*.wasm', '**/ffmpeg/**'],
                 maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
                 navigateFallback: '/index.html',
                 runtimeCaching: [
@@ -62,8 +62,9 @@ export default defineConfig(({ mode }) => {
                     },
                   },
                   {
-                    // ffmpeg core from CDN → cache on first video/audio use.
-                    urlPattern: ({ url }) => url.hostname === 'unpkg.com' && url.pathname.includes('@ffmpeg/core'),
+                    // Self-hosted ffmpeg core (too big to precache) → cache on first
+                    // video/audio use so web works offline afterwards.
+                    urlPattern: ({ url }) => url.pathname.startsWith('/ffmpeg/'),
                     handler: 'CacheFirst',
                     options: {
                       cacheName: 'ffmpeg-core',

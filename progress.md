@@ -83,6 +83,18 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-07-02 — Self-hosted ffmpeg → video/audio 100% offline
+- **Vendored the ffmpeg core** (`@ffmpeg/core` 0.12.6 ESM) into `public/ffmpeg/`
+  (`ffmpeg-core.js` + `ffmpeg-core.wasm`, ~31 MB) and pointed `mediaConverters`
+  at `${origin}/ffmpeg` instead of the unpkg CDN. Video/audio (MP3/WAV/GIF/MP4/
+  WebM/compress/trim/merge/bitrate) now need **no internet** — the last CDN
+  dependency is gone, so the whole app is fully offline.
+- **PWA:** added `**/ffmpeg/**` to workbox `globIgnores` (the 31 MB wasm can't be
+  precached without failing the build) and runtime-cache `/ffmpeg/` on first use.
+  Replaces the old `unpkg.com/@ffmpeg/core` runtime rule.
+- **Verified:** `npm run build` (PWA on) passes; in preview the core loads from
+  our origin and a WAV→MP3 transcode succeeds (`audio/mpeg`). APK grows ~31 MB.
+
 ### 2026-07-02 — Fix: Vercel web deploys were failing (stuck since Batch 1)
 - **Symptom:** the APK had all features but the website was frozen at commit `481c88b`
   (resize + watermark) — every Vercel deploy since **failed** (`state: ERROR`).
