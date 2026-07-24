@@ -19,6 +19,21 @@ if (Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
   }
 }
 
+// Self-heal stale deploys: a lazy-loaded chunk (every converter dynamically
+// imports its library) can 404 after a redeploy, because the browser/service-
+// worker cache still points at an old hashed filename that no longer exists on
+// the server — the "Failed to fetch dynamically imported module" error. Reload
+// once to pick up the current build. The sessionStorage guard prevents a loop.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  // Reload at most once per 15 s — prevents an infinite loop if a chunk is
+  // genuinely missing, but still self-heals on any later redeploy.
+  const last = Number(sessionStorage.getItem('chunkReloadAt') || 0);
+  if (Date.now() - last < 15000) return;
+  sessionStorage.setItem('chunkReloadAt', String(Date.now()));
+  window.location.reload();
+});
+
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

@@ -83,6 +83,17 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-07-02 — Fix: "Failed to fetch dynamically imported module" (stale chunk)
+- **Symptom (web):** after a redeploy, a tool (e.g. PDF→JPG) errored with "Failed to
+  fetch dynamically imported module: …/jszip.min-<oldhash>.js". Confirmed the live
+  server 404s the old hash — the browser/SW cache still pointed at a chunk the newer
+  deploy had replaced. Affects every lazy-loaded converter, not just one.
+- **Fix** ([`main.tsx`](src/main.tsx) + [`App.tsx`](src/App.tsx)): self-heal — on a
+  `vite:preloadError` (or a stale-chunk error caught in `convert()`), reload once to pick
+  up the current build. Guarded to at most one reload per 15 s (no loops). Native app is
+  unaffected (all chunks are bundled locally), so no APK rebuild needed.
+- Verified `npm run build` passes, types clean.
+
 ### 2026-07-02 — Self-hosted ffmpeg → video/audio 100% offline
 - **Vendored the ffmpeg core** (`@ffmpeg/core` 0.12.6 ESM) into `public/ffmpeg/`
   (`ffmpeg-core.js` + `ffmpeg-core.wasm`, ~31 MB) and pointed `mediaConverters`

@@ -16,6 +16,19 @@ import {
 } from './lib/download';
 import './App.css';
 
+/** A lazy-loaded chunk failed to load — usually a stale build after a redeploy. */
+function isStaleChunkError(msg: string): boolean {
+  return /dynamically imported module|module script failed/i.test(msg);
+}
+/** Reload once to pick up the current build; guarded against loops. Returns true if reloading. */
+function reloadForStaleChunk(): boolean {
+  const last = Number(sessionStorage.getItem('chunkReloadAt') || 0);
+  if (Date.now() - last < 15000) return false;
+  sessionStorage.setItem('chunkReloadAt', String(Date.now()));
+  window.location.reload();
+  return true;
+}
+
 const ICONS: Record<string, string> = {
   pdf: '📄', docx: '📝', txt: '📃', xlsx: '📊', csv: '📋', zip: '🗜️',
   png: '🖼️', jpg: '🖼️', jpeg: '🖼️', webp: '🖼️', bmp: '🖼️', gif: '🎞️',
@@ -230,6 +243,7 @@ export default function App() {
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Something went wrong.';
+      if (!canceledRef.current && isStaleChunkError(msg) && reloadForStaleChunk()) return;
       setError(canceledRef.current ? 'Canceled.' : `Conversion failed: ${msg}`);
     } finally {
       onFFmpegStatus(null);
