@@ -83,6 +83,30 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-07-02 — Windows desktop app (Electron)
+
+- **Goal:** a `.exe` for Windows users, alongside the PWA-install option (Tauri
+  deferred — its Rust/C++ toolchain install was ~2-4 GB, user chose Electron instead
+  for now).
+- **[`electron/static-server.cjs`](electron/static-server.cjs):** a tiny Node `http`
+  server (not `file://`) so the packaged app resolves root-relative asset and engine
+  paths (`/assets`, `/ffmpeg`, `/models`, `/qpdf.wasm`, `/tesseract`) exactly like the
+  web build; includes a MIME map for `.wasm`/`.onnx`/`.gz`/`.traineddata`, SPA
+  fallback for navigations, and a path-traversal guard.
+- **[`electron/main.cjs`](electron/main.cjs):** main process — creates the
+  `BrowserWindow`, starts the static server, loads `http://127.0.0.1:<port>/`, shows
+  a native **Save As** dialog on download (`will-download`), and opens external
+  links in the user's real browser instead of inside the app.
+- **Packaging:** `electron-builder` (NSIS target, non-one-click installer so the
+  user can pick the install directory), `npm run electron:build` = `build:app` +
+  `electron-builder --win`.
+- **Verified:** static server serves all self-hosted engine assets with correct
+  content-types (manual smoke test); `electron-builder --win` succeeds, producing
+  `MunnX Convertor Setup 0.1.0.exe` (~192 MB, unsigned — SmartScreen shows "Run
+  anyway" since there's no code-signing cert yet).
+- **Not pushed to CI/Vercel path** — Electron tooling lives only in this repo/local
+  build; the web deploy is unaffected.
+
 ### 2026-07-02 — Fix: "Failed to fetch dynamically imported module" (stale chunk)
 - **Symptom (web):** after a redeploy, a tool (e.g. PDF→JPG) errored with "Failed to
   fetch dynamically imported module: …/jszip.min-<oldhash>.js". Confirmed the live
