@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { batchableFor, getSourceType, MERGE_REGISTRY, REGISTRY } from './converters/registry';
-import type { ConversionResult, ParamControl, ParamValue, ParamValues, ProgressFn } from './converters/types';
+import type { ConversionResult, InspectFn, ParamControl, ParamValue, ParamValues, ProgressFn, ResultView } from './converters/types';
 import { asPlacement, defaultsOf } from './converters/types';
 import { onFFmpegStatus, terminateFFmpeg } from './converters/mediaConverters';
 import { SignaturePad } from './SignaturePad';
@@ -73,6 +73,8 @@ interface Action {
   group?: 'each' | 'combine';
   /** Runs across every dropped file and returns a zip. */
   batch?: boolean;
+  /** Builds controls by reading the file (PDF form fields). */
+  inspect?: InspectFn;
   run: (onProgress?: ProgressFn, params?: ParamValues) => Promise<ConversionResult>;
 }
 
@@ -108,6 +110,50 @@ function formatSize(bytes: number) {
   const units = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${units[i]}`;
+}
+
+/** Results worth reading on screen: OCR text, a decoded QR, photo metadata. */
+function ResultPanel({ view }: { view: ResultView }) {
+  const [copied, setCopied] = useState('');
+  const copy = (text: string, tag: string) => {
+    void navigator.clipboard?.writeText(text).then(() => {
+      setCopied(tag);
+      setTimeout(() => setCopied(''), 1600);
+    });
+  };
+
+  if (view.kind === 'text') {
+    return (
+      <div className="result-view">
+        <div className="rv-head">
+          <h4>Result</h4>
+          <button className="rv-copy" onClick={() => copy(view.text, 'all')}>
+            {copied === 'all' ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+        <pre className="rv-text">{view.text}</pre>
+      </div>
+    );
+  }
+
+  return (
+    <div className="result-view">
+      {view.groups.map((g) => (
+        <div className="rv-group" key={g.title}>
+          <h4>{g.title}</h4>
+          {g.rows.map((r, i) => (
+            <div className={`rv-row ${r.level ? `rv-${r.level}` : ''}`} key={`${r.label}-${i}`}>
+              <span className="rv-label">{r.label}</span>
+              <span className="rv-value">{r.value}</span>
+              <button className="rv-copy" onClick={() => copy(r.value, `${g.title}-${i}`)}>
+                {copied === `${g.title}-${i}` ? '✓' : '⧉'}
+              </button>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /** Controls rendered under a selected action. */
@@ -210,6 +256,9 @@ export default function App() {
   // readable copy of every converted payslip or ID scan on a shared computer,
   // which is exactly what this app promises not to do. They vanish on reload.
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [inspected, setInspected] = useState<{ key: string; params: ParamControl[]; message?: string } | null>(null);
+  const [inspecting, setInspecting] = useState(false);
+  const [view, setView] = useState<ResultView | null>(null);
   const canceledRef = useRef(false);
 
   const reset = () => {
@@ -257,6 +306,7 @@ export default function App() {
         note: opt.note,
         icon: ICONS[opt.target] ?? '📁',
         params: opt.params,
+        inspect: opt.inspect,
         media,
         run: (p?: ProgressFn, pv?: ParamValues) => opt.run(file, p, pv),
       }));
@@ -296,14 +346,37 @@ export default function App() {
   }, [files]);
 
   const selected = useMemo(() => actions.find((a) => a.key === selectedKey) ?? null, [actions, selectedKey]);
+
+  // Tools whose controls come from inside the file (PDF form fields) look at it
+  // once the tool is picked, rather than the registry knowing them up front.
+  useEffect(() => {
+    if (!selected?.inspect || !files[0]) {
+      setInspected(null);
+      return;
+    }
+    let dead = false;
+    const key = selected.key;
+    setInspecting(true);
+    setInspected(null);
+    selected
+      .inspect(files[0])
+      .then((r) => !dead && setInspected({ key, ...r }))
+      .catch((e) => !dead && setInspected({ key, params: [], message: e instanceof Error ? e.message : 'Could not read this file.' }))
+      .finally(() => !dead && setInspecting(false));
+    return () => {
+      dead = true;
+    };
+  }, [selected, files]);
+
+  const activeParams = inspected?.key === selected?.key ? inspected?.params : selected?.params;
   const combineActions = useMemo(() => actions.filter((a) => a.group === 'combine'), [actions]);
   const eachActions = useMemo(() => actions.filter((a) => a.group === 'each'), [actions]);
 
-  const paramValues = selected?.params ? paramState[selected.key] ?? defaultsOf(selected.params) : undefined;
+  const paramValues = activeParams?.length ? paramState[selected!.key] ?? defaultsOf(activeParams) : undefined;
 
   const setParam = (key: string, value: ParamValue) => {
     if (!selected) return;
-    const current = paramState[selected.key] ?? defaultsOf(selected.params);
+    const current = paramState[selected.key] ?? defaultsOf(activeParams);
     setParamState((s) => ({ ...s, [selected.key]: { ...current, [key]: value } }));
   };
 
@@ -316,9 +389,11 @@ export default function App() {
     setStatus('');
     setProgress(0);
     setPending(null);
+    setView(null);
     if (selected.media) onFFmpegStatus(setStatus);
     try {
       const result = await selected.run((f) => setProgress(f), paramValues);
+      setView(result.view ?? null);
       setHistory((h) =>
         trimHistory([
           { id: Date.now(), filename: result.filename, label: selected.label, blob: result.blob, at: Date.now() },
@@ -490,8 +565,12 @@ export default function App() {
             )}
             {selected?.note && <p className="note">ⓘ {selected.note}</p>}
             {selected?.batch && <p className="note">📦 Each file is converted separately and you get one zip back.</p>}
-            {selected?.params && paramValues && (
-              <ActionParams params={selected.params} values={paramValues} onChange={setParam} file={files[0] ?? null} />
+            {inspecting && <p className="note">Reading the file…</p>}
+            {inspected?.key === selected?.key && inspected?.message && (
+              <p className="note">ⓘ {inspected.message}</p>
+            )}
+            {activeParams && activeParams.length > 0 && paramValues && (
+              <ActionParams params={activeParams} values={paramValues} onChange={setParam} file={files[0] ?? null} />
             )}
           </section>
         )}
@@ -536,6 +615,7 @@ export default function App() {
         {notice && <div className="message notice">{notice}</div>}
         {error && <div className="message error">{error}</div>}
         {done && <div className="message success">{done}</div>}
+        {view && <ResultPanel view={view} />}
 
         {pending && isAndroidApp() && (
           <div className="save-row">

@@ -789,3 +789,79 @@
   font-size: 0.72rem;
   color: var(--text-3);
 }
+
+/* ---------- On-screen results (OCR text, decoded QR, photo metadata) ---------- */
+.result-view {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 12px 14px;
+}
+.rv-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.result-view h4 {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.rv-group + .rv-group {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.rv-text {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+.rv-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 0.82rem;
+}
+.rv-row + .rv-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+.rv-label {
+  flex: 0 0 40%;
+  color: var(--text-3);
+}
+.rv-value {
+  flex: 1;
+  color: var(--text);
+  word-break: break-word;
+}
+.rv-alert .rv-value {
+  color: var(--orange-2);
+  font-weight: 600;
+}
+.rv-warn .rv-value {
+  color: var(--text);
+}
+.rv-copy {
+  flex: none;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-3);
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+.rv-copy:hover {
+  border-color: var(--blue-bright);
+  color: var(--text);
+}

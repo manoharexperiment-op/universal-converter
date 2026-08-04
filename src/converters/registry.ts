@@ -1,10 +1,15 @@
-import type { MergeOption, ParamControl, TargetOption } from './types';
+import type { InspectResult, MergeOption, ParamControl, TargetOption } from './types';
 import * as img from './imageConverters';
 import * as pdf from './pdfConverters';
 import * as doc from './documentConverters';
 import * as sheet from './spreadsheetConverters';
 import * as media from './mediaConverters';
 import { mergePdfs, imagesToPdf, mergeAudio } from './batchConverters';
+import * as qr from './qrConverters';
+import * as exif from './exifConverters';
+import * as office from './pdfOffice';
+import * as ptext from './pdfTextTools';
+import { addTextControls } from './pdfTextTools';
 
 /* ---- reusable parameter controls ---- */
 const BITRATE_PARAM: ParamControl = {
@@ -118,6 +123,38 @@ const WATERMARK_PARAMS: ParamControl[] = [
   { kind: 'range', key: 'size', label: 'Size (images)', default: 6, min: 2, max: 20, step: 1, unit: '%' },
 ];
 
+/** Turn the form fields found inside a PDF into controls the UI can render. */
+async function inspectFormControls(file: File): Promise<InspectResult> {
+  const { fields, message } = await ptext.inspectPdfForm(file);
+  const params: ParamControl[] = fields.map((f) => {
+    if (f.type === 'checkbox') {
+      return {
+        kind: 'select', key: f.name, label: f.name,
+        default: f.value === 'yes' ? 'yes' : 'no',
+        options: [{ value: 'yes', label: 'Ticked' }, { value: 'no', label: 'Not ticked' }],
+      };
+    }
+    if (f.options?.length) {
+      return {
+        kind: 'select', key: f.name, label: f.name,
+        default: f.value || f.options[0],
+        options: f.options.map((o) => ({ value: o, label: o || '(blank)' })),
+      };
+    }
+    return { kind: 'text', key: f.name, label: f.name, default: f.value ?? '', placeholder: 'Type here' };
+  });
+  if (params.length) {
+    params.push({
+      kind: 'select', key: '__flatten', label: 'Lock the answers in', default: 'yes',
+      options: [
+        { value: 'yes', label: 'Yes, make them permanent' },
+        { value: 'no', label: 'No, keep the form editable' },
+      ],
+    });
+  }
+  return { params, message };
+}
+
 /** Image inputs the browser can reliably decode via <img>/Canvas. */
 export const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'];
 /** Video inputs ffmpeg.wasm can read. */
@@ -154,12 +191,16 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'jpg', batch: 'never', label: 'Sign & date', note: 'Draw your signature, then drag it anywhere on the photo', params: SIGN_PARAMS, run: (f, p, pv) => img.signPhoto(f, p, pv) },
     { target: 'pdf', label: 'PDF', run: (f) => img.imageToPdf(f) },
     { target: 'txt', label: 'Text (OCR)', note: 'Reads text out of the image on-device', run: (f, p) => img.imageToText(f, p) },
+    { target: 'txt', label: 'Read QR', note: 'Finds a QR code in the picture and reads it out', run: (f, p) => qr.readQrCode(f, p) },
+    { target: 'txt', batch: 'never', label: 'View metadata', note: 'See what is hidden inside the photo, including GPS location', run: (f) => exif.viewImageMetadata(f) },
+    { target: 'jpg', label: 'Strip metadata', note: 'Removes GPS, camera and date without touching the picture quality', run: (f) => exif.stripImageMetadata(f) },
   ],
   pdf: [
     { target: 'png', batch: 'never', label: 'PNG', note: 'One image per page (zipped if multiple)', run: (f, p) => pdf.pdfToImages(f, 'png', p) },
     { target: 'jpg', batch: 'never', label: 'JPG', note: 'One image per page (zipped if multiple)', run: (f, p) => pdf.pdfToImages(f, 'jpg', p) },
     { target: 'txt', label: 'Text', run: (f, p) => pdf.pdfToText(f, p) },
-    { target: 'docx', label: 'Word', note: 'Text-level — complex layouts/tables are flattened', run: (f, p) => pdf.pdfToDocx(f, p) },
+    { target: 'docx', label: 'Word', note: 'Rebuilds headings and paragraphs; falls back to OCR for scans', run: (f, p) => office.pdfToDocxRich(f, p) },
+    { target: 'xlsx', label: 'Excel', note: 'Ruled tables become rows and columns; otherwise one row per line', run: (f, p) => office.pdfToXlsx(f, p) },
     { target: 'pdf', label: 'Rotate 90°', note: 'Rotates every page 90° clockwise', run: (f) => pdf.pdfRotate(f, 90) },
     { target: 'zip', batch: 'never', label: 'Split pages', note: 'Each page as its own PDF (zipped)', run: (f, p) => pdf.pdfSplit(f, p) },
     { target: 'pdf', label: 'Compress', note: 'Best for scanned/image PDFs — flattens pages to images, so text is no longer selectable', params: [LEVEL_PARAM], run: (f, p, pv) => pdf.compressPdf(f, p, pv) },
@@ -167,6 +208,8 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'pdf', label: 'Protect', note: 'Add a password (AES-256). It cannot be recovered if forgotten.', params: PROTECT_PARAMS, run: (f, p, pv) => pdf.protectPdf(f, p, pv) },
     { target: 'pdf', label: 'Unlock', note: 'Remove a password you already know', params: UNLOCK_PARAMS, run: (f, p, pv) => pdf.removePdfPassword(f, p, pv) },
     { target: 'pdf', label: 'Remove watermark', note: 'Only removes separate watermark layers/annotations — not marks drawn into the page', run: (f) => pdf.removePdfWatermark(f) },
+    { target: 'pdf', batch: 'never', label: 'Add text', note: 'Type anything and drag it where you want, works on scans too', params: addTextControls, run: (f, p, pv) => ptext.addTextToPdf(f, p, pv) },
+    { target: 'pdf', batch: 'never', label: 'Fill form', note: 'Fills a PDF that has real form fields', inspect: inspectFormControls, run: (f, p, pv) => ptext.fillPdfForm(f, p, pv) },
     { target: 'pdf', batch: 'never', label: 'Sign & date', note: 'Draw your signature, then drag it anywhere on the page', params: SIGN_PARAMS, run: (f, p, pv) => pdf.signPdf(f, p, pv) },
   ],
   docx: [

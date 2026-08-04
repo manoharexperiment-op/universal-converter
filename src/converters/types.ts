@@ -104,9 +104,22 @@ export interface TargetOption {
    * zips inside a zip.
    */
   batch?: 'each' | 'never';
+  /**
+   * Build the controls by looking inside the file, for tools whose inputs are
+   * discovered at runtime rather than known up front (PDF form fields).
+   */
+  inspect?: InspectFn;
   /** The actual conversion routine. */
   run: ConvertFn;
 }
+
+/** Controls discovered by reading the file, plus a message when there are none. */
+export interface InspectResult {
+  params: ParamControl[];
+  message?: string;
+}
+
+export type InspectFn = (file: File) => Promise<InspectResult>;
 
 /** Combine several files into one output (merge, not per-file conversion). */
 export type MergeFn = (files: File[], onProgress?: ProgressFn, params?: ParamValues) => Promise<ConversionResult>;
