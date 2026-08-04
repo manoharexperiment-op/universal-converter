@@ -1,9 +1,10 @@
-import type { ParamControl, TargetOption } from './types';
+import type { MergeOption, ParamControl, TargetOption } from './types';
 import * as img from './imageConverters';
 import * as pdf from './pdfConverters';
 import * as doc from './documentConverters';
 import * as sheet from './spreadsheetConverters';
 import * as media from './mediaConverters';
+import { mergePdfs, imagesToPdf, mergeAudio } from './batchConverters';
 
 /* ---- reusable parameter controls ---- */
 const BITRATE_PARAM: ParamControl = {
@@ -150,23 +151,23 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'jpg', label: 'Resize', note: 'Set an exact width/height — keep the aspect ratio or stretch', params: RESIZE_PARAMS, run: (f, p, pv) => img.resizeImage(f, p, pv) },
     { target: 'jpg', label: 'Watermark', note: 'Stamp your text over the image', params: WATERMARK_PARAMS, run: (f, p, pv) => img.watermarkImage(f, p, pv) },
     { target: 'png', label: 'Remove BG', note: 'AI cutout, on-device & offline. Best on clear subjects; can be slow on phones. Output is a transparent PNG.', run: (f, p) => img.removeImageBackground(f, p) },
-    { target: 'jpg', label: 'Sign & date', note: 'Draw your signature, then drag it anywhere on the photo', params: SIGN_PARAMS, run: (f, p, pv) => img.signPhoto(f, p, pv) },
+    { target: 'jpg', batch: 'never', label: 'Sign & date', note: 'Draw your signature, then drag it anywhere on the photo', params: SIGN_PARAMS, run: (f, p, pv) => img.signPhoto(f, p, pv) },
     { target: 'pdf', label: 'PDF', run: (f) => img.imageToPdf(f) },
     { target: 'txt', label: 'Text (OCR)', note: 'Reads text out of the image on-device', run: (f, p) => img.imageToText(f, p) },
   ],
   pdf: [
-    { target: 'png', label: 'PNG', note: 'One image per page (zipped if multiple)', run: (f, p) => pdf.pdfToImages(f, 'png', p) },
-    { target: 'jpg', label: 'JPG', note: 'One image per page (zipped if multiple)', run: (f, p) => pdf.pdfToImages(f, 'jpg', p) },
+    { target: 'png', batch: 'never', label: 'PNG', note: 'One image per page (zipped if multiple)', run: (f, p) => pdf.pdfToImages(f, 'png', p) },
+    { target: 'jpg', batch: 'never', label: 'JPG', note: 'One image per page (zipped if multiple)', run: (f, p) => pdf.pdfToImages(f, 'jpg', p) },
     { target: 'txt', label: 'Text', run: (f, p) => pdf.pdfToText(f, p) },
     { target: 'docx', label: 'Word', note: 'Text-level — complex layouts/tables are flattened', run: (f, p) => pdf.pdfToDocx(f, p) },
     { target: 'pdf', label: 'Rotate 90°', note: 'Rotates every page 90° clockwise', run: (f) => pdf.pdfRotate(f, 90) },
-    { target: 'zip', label: 'Split pages', note: 'Each page as its own PDF (zipped)', run: (f, p) => pdf.pdfSplit(f, p) },
+    { target: 'zip', batch: 'never', label: 'Split pages', note: 'Each page as its own PDF (zipped)', run: (f, p) => pdf.pdfSplit(f, p) },
     { target: 'pdf', label: 'Compress', note: 'Best for scanned/image PDFs — flattens pages to images, so text is no longer selectable', params: [LEVEL_PARAM], run: (f, p, pv) => pdf.compressPdf(f, p, pv) },
     { target: 'pdf', label: 'Watermark', note: 'Stamp your text on every page', params: WATERMARK_PARAMS, run: (f, p, pv) => pdf.watermarkPdf(f, p, pv) },
     { target: 'pdf', label: 'Protect', note: 'Add a password (AES-256). It cannot be recovered if forgotten.', params: PROTECT_PARAMS, run: (f, p, pv) => pdf.protectPdf(f, p, pv) },
     { target: 'pdf', label: 'Unlock', note: 'Remove a password you already know', params: UNLOCK_PARAMS, run: (f, p, pv) => pdf.removePdfPassword(f, p, pv) },
     { target: 'pdf', label: 'Remove watermark', note: 'Only removes separate watermark layers/annotations — not marks drawn into the page', run: (f) => pdf.removePdfWatermark(f) },
-    { target: 'pdf', label: 'Sign & date', note: 'Draw your signature, then drag it anywhere on the page', params: SIGN_PARAMS, run: (f, p, pv) => pdf.signPdf(f, p, pv) },
+    { target: 'pdf', batch: 'never', label: 'Sign & date', note: 'Draw your signature, then drag it anywhere on the page', params: SIGN_PARAMS, run: (f, p, pv) => pdf.signPdf(f, p, pv) },
   ],
   docx: [
     { target: 'pdf', label: 'PDF', note: 'Text + headings; advanced styling simplified', run: (f) => doc.docxToPdf(f) },
@@ -195,3 +196,22 @@ export const REGISTRY: Record<string, TargetOption[]> = {
   ],
   html: [{ target: 'pdf', label: 'PDF', note: 'Text + headings; CSS layout simplified', run: (f) => doc.htmlToPdf(f) }],
 };
+
+/** Actions offered when several files of the same kind are dropped together. */
+export const MERGE_REGISTRY: Record<string, MergeOption[]> = {
+  pdf: [{ target: 'pdf', label: 'Merge into one PDF', note: 'Joins every PDF, in the order shown above', run: mergePdfs }],
+  image: [{ target: 'pdf', label: 'Combine into one PDF', note: 'One image per page, in the order shown above', run: imagesToPdf }],
+  audio: [{ target: 'mp3', label: 'Join into one MP3', note: 'Plays end to end, in the order shown above', media: true, run: mergeAudio }],
+};
+
+/**
+ * Tools that are pointless or punishing to run across many files at once.
+ * Video encoding takes minutes per file, so a batch of ten would look frozen.
+ */
+const NO_BATCH_TYPES = new Set(['video']);
+
+/** The per-file tools offered for a batch of `type` files. */
+export function batchableFor(type: string): TargetOption[] {
+  if (NO_BATCH_TYPES.has(type)) return [];
+  return (REGISTRY[type] ?? []).filter((o) => o.batch !== 'never');
+}

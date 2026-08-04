@@ -98,8 +98,27 @@ export interface TargetOption {
   note?: string;
   /** Optional parameter controls shown when this option is selected. */
   params?: ParamControl[];
+  /**
+   * Whether this tool is offered when several files are dropped. 'never' is for
+   * tools that already fan one file out into a zip, where batching would nest
+   * zips inside a zip.
+   */
+  batch?: 'each' | 'never';
   /** The actual conversion routine. */
   run: ConvertFn;
+}
+
+/** Combine several files into one output (merge, not per-file conversion). */
+export type MergeFn = (files: File[], onProgress?: ProgressFn, params?: ParamValues) => Promise<ConversionResult>;
+
+/** A "combine these files" action offered when several files are dropped. */
+export interface MergeOption {
+  target: string;
+  label: string;
+  note?: string;
+  /** ffmpeg-backed, so it can be cancelled mid-run. */
+  media?: boolean;
+  run: MergeFn;
 }
 
 /** Build the default ParamValues for a control list (seeds UI state + run fallbacks). */

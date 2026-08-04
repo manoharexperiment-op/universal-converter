@@ -1,12 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { AUDIO_EXTS, getSourceType, IMAGE_EXTS, REGISTRY } from './converters/registry';
+import { batchableFor, getSourceType, MERGE_REGISTRY, REGISTRY } from './converters/registry';
 import type { ConversionResult, ParamControl, ParamValue, ParamValues, ProgressFn } from './converters/types';
 import { asPlacement, defaultsOf } from './converters/types';
-import { mergePdfs, imagesToPdf, mergeAudio } from './converters/batchConverters';
 import { onFFmpegStatus, terminateFFmpeg } from './converters/mediaConverters';
 import { SignaturePad } from './SignaturePad';
 import { PlacementPad } from './PlacementPad';
+import { FileList } from './FileList';
+import { runBatch, MAX_BATCH_FILES } from './converters/batchRunner';
 import {
   isNativePlatform,
   isAndroidApp,
@@ -68,7 +69,34 @@ interface Action {
   params?: ParamControl[];
   /** ffmpeg-backed (video/audio) — can be cancelled mid-run. */
   media?: boolean;
+  /** Which heading this sits under when several files are dropped. */
+  group?: 'each' | 'combine';
+  /** Runs across every dropped file and returns a zip. */
+  batch?: boolean;
   run: (onProgress?: ProgressFn, params?: ParamValues) => Promise<ConversionResult>;
+}
+
+interface HistoryItem {
+  id: number;
+  filename: string;
+  label: string;
+  blob: Blob;
+  at: number;
+}
+
+/** Keep recent results reachable without letting blobs pile up in memory. */
+const HISTORY_MAX_ITEMS = 8;
+const HISTORY_MAX_BYTES = 300 * 1024 * 1024;
+
+function trimHistory(items: HistoryItem[]): HistoryItem[] {
+  const kept: HistoryItem[] = [];
+  let bytes = 0;
+  for (const it of items.slice(0, HISTORY_MAX_ITEMS)) {
+    bytes += it.blob.size;
+    if (bytes > HISTORY_MAX_BYTES && kept.length) break;
+    kept.push(it);
+  }
+  return kept;
 }
 
 function extOf(name: string) {
@@ -177,10 +205,16 @@ export default function App() {
   // On the native app, the converted file waits here for a Save/Share choice.
   const [pending, setPending] = useState<{ blob: Blob; filename: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState('');
+  // Recent results, held in memory ONLY. Writing them to IndexedDB would leave a
+  // readable copy of every converted payslip or ID scan on a shared computer,
+  // which is exactly what this app promises not to do. They vanish on reload.
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const canceledRef = useRef(false);
 
   const reset = () => {
     setFiles([]);
+    setNotice('');
     setSelectedKey(null);
     setParamState({});
     setError('');
@@ -191,7 +225,12 @@ export default function App() {
 
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted.length) {
-      setFiles(accepted);
+      setFiles(accepted.slice(0, MAX_BATCH_FILES));
+      setNotice(
+        accepted.length > MAX_BATCH_FILES
+          ? `Taking the first ${MAX_BATCH_FILES} files — that's the most we process at once.`
+          : '',
+      );
       setSelectedKey(null);
       // Params are keyed by action, and actions are keyed by target+label, so a
       // new file would otherwise inherit the previous file's settings (a page
@@ -223,22 +262,42 @@ export default function App() {
       }));
     }
     if (files.length > 1) {
-      const exts = files.map((f) => extOf(f.name));
-      if (exts.every((e) => e === 'pdf')) {
-        return [{ key: 'merge-pdf', label: 'Merge PDFs', note: 'Combine all PDFs into one, in order', icon: '📄', run: (p?: ProgressFn) => mergePdfs(files, p) }];
-      }
-      if (exts.every((e) => IMAGE_EXTS.includes(e))) {
-        return [{ key: 'images-pdf', label: 'Combine into PDF', note: 'One image per page', icon: '📄', run: (p?: ProgressFn) => imagesToPdf(files, p) }];
-      }
-      if (exts.every((e) => AUDIO_EXTS.includes(e))) {
-        return [{ key: 'merge-audio', label: 'Merge audio', note: 'Join into one MP3, in order', icon: '🎵', media: true, run: (p?: ProgressFn) => mergeAudio(files, p) }];
-      }
-      return [];
+      // Every file must be the same kind, or "do this to each" is meaningless.
+      const types = new Set(files.map((f) => getSourceType(f.name)));
+      const type = types.size === 1 ? [...types][0] : null;
+      if (!type) return [];
+      const media = type === 'video' || type === 'audio';
+
+      const each: Action[] = batchableFor(type).map((opt) => ({
+        key: `each:${opt.target}:${opt.label}`,
+        label: opt.label,
+        note: opt.note,
+        icon: ICONS[opt.target] ?? '📁',
+        params: opt.params,
+        media,
+        group: 'each' as const,
+        batch: true,
+        run: (p?: ProgressFn, pv?: ParamValues) => runBatch(files, opt, p, pv),
+      }));
+
+      const combine: Action[] = (MERGE_REGISTRY[type] ?? []).map((opt) => ({
+        key: `merge:${opt.target}:${opt.label}`,
+        label: opt.label,
+        note: opt.note,
+        icon: ICONS[opt.target] ?? '📁',
+        media: opt.media,
+        group: 'combine' as const,
+        run: (p?: ProgressFn) => opt.run(files, p),
+      }));
+
+      return [...combine, ...each];
     }
     return [];
   }, [files]);
 
   const selected = useMemo(() => actions.find((a) => a.key === selectedKey) ?? null, [actions, selectedKey]);
+  const combineActions = useMemo(() => actions.filter((a) => a.group === 'combine'), [actions]);
+  const eachActions = useMemo(() => actions.filter((a) => a.group === 'each'), [actions]);
 
   const paramValues = selected?.params ? paramState[selected.key] ?? defaultsOf(selected.params) : undefined;
 
@@ -260,6 +319,12 @@ export default function App() {
     if (selected.media) onFFmpegStatus(setStatus);
     try {
       const result = await selected.run((f) => setProgress(f), paramValues);
+      setHistory((h) =>
+        trimHistory([
+          { id: Date.now(), filename: result.filename, label: selected.label, blob: result.blob, at: Date.now() },
+          ...h,
+        ]),
+      );
       if (isNativePlatform()) {
         // Hold the file and let the user choose Save to device / Share.
         setPending({ blob: result.blob, filename: result.filename });
@@ -353,10 +418,7 @@ export default function App() {
               <span className="file-icon">📚</span>
               <div className="file-meta">
                 <p className="file-name">{files.length} files selected</p>
-                <p className="file-size">
-                  {files.map((f) => f.name).slice(0, 3).join(', ')}
-                  {files.length > 3 ? ` +${files.length - 3} more` : ''}
-                </p>
+                <p className="file-size">{formatSize(files.reduce((n, f) => n + f.size, 0))} in total</p>
               </div>
               <button className="remove-btn" onClick={(e) => { e.stopPropagation(); reset(); }} aria-label="Clear files">✕</button>
             </div>
@@ -372,22 +434,62 @@ export default function App() {
           )}
         </div>
 
+        {multiple && (
+          <FileList
+            files={files}
+            onChange={(next) => {
+              setFiles(next);
+              if (!next.length) reset();
+            }}
+            ordered={combineActions.length > 0}
+          />
+        )}
+
         {actions.length > 0 && (
           <section className="format-section">
-            <h3>{multiple ? 'Action:' : 'Convert to:'}</h3>
-            <div className="format-grid">
-              {actions.map((a) => (
-                <button
-                  key={a.key}
-                  className={`format-btn ${selected?.key === a.key ? 'selected' : ''}`}
-                  onClick={() => setSelectedKey(a.key)}
-                  title={a.note}
-                >
-                  {a.icon} {a.label}
-                </button>
-              ))}
-            </div>
+            {multiple ? (
+              <>
+                {combineActions.length > 0 && (
+                  <>
+                    <h3>Combine them into one file:</h3>
+                    <div className="format-grid">
+                      {combineActions.map((a) => (
+                        <button key={a.key} className={`format-btn ${selected?.key === a.key ? 'selected' : ''}`} onClick={() => setSelectedKey(a.key)} title={a.note}>
+                          {a.icon} {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {eachActions.length > 0 && (
+                  <>
+                    <h3 className={combineActions.length ? 'group-gap' : undefined}>
+                      Or do this to all {files.length} files:
+                    </h3>
+                    <div className="format-grid">
+                      {eachActions.map((a) => (
+                        <button key={a.key} className={`format-btn ${selected?.key === a.key ? 'selected' : ''}`} onClick={() => setSelectedKey(a.key)} title={a.note}>
+                          {a.icon} {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <h3>Convert to:</h3>
+                <div className="format-grid">
+                  {actions.map((a) => (
+                    <button key={a.key} className={`format-btn ${selected?.key === a.key ? 'selected' : ''}`} onClick={() => setSelectedKey(a.key)} title={a.note}>
+                      {a.icon} {a.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             {selected?.note && <p className="note">ⓘ {selected.note}</p>}
+            {selected?.batch && <p className="note">📦 Each file is converted separately and you get one zip back.</p>}
             {selected?.params && paramValues && (
               <ActionParams params={selected.params} values={paramValues} onChange={setParam} file={files[0] ?? null} />
             )}
@@ -397,7 +499,7 @@ export default function App() {
         {unsupported && (
           <div className="message error">
             {multiple
-              ? 'For multiple files, drop all PDFs (merge), all images (combine to PDF), or all audio (merge).'
+              ? 'Drop files of the same kind together — all PDFs, all images, or all audio. Mixed types can’t be combined or batch-converted.'
               : <>Sorry, <strong>.{extOf(files[0].name)}</strong> files aren&apos;t supported yet.</>}
           </div>
         )}
@@ -431,6 +533,7 @@ export default function App() {
           </>
         )}
 
+        {notice && <div className="message notice">{notice}</div>}
         {error && <div className="message error">{error}</div>}
         {done && <div className="message success">{done}</div>}
 
@@ -450,6 +553,36 @@ export default function App() {
               {saving ? <><span className="spinner" /> Working…</> : <>↗️ Save / Share</>}
             </button>
           </div>
+        )}
+
+        {history.length > 0 && (
+          <section className="history">
+            <div className="history-head">
+              <h3>Recent conversions</h3>
+              <button className="history-clear" onClick={() => setHistory([])}>Clear</button>
+            </div>
+            <ul className="history-list">
+              {history.map((h) => (
+                <li key={h.id}>
+                  <span className="fl-meta">
+                    <span className="fl-name">{h.filename}</span>
+                    <span className="fl-size">{h.label} · {formatSize(h.blob.size)}</span>
+                  </span>
+                  <button
+                    className="fl-btn history-get"
+                    onClick={() =>
+                      isNativePlatform() ? void shareFile(h.blob, h.filename) : downloadBlob(h.blob, h.filename)
+                    }
+                  >
+                    {isNativePlatform() ? '↗' : '⬇'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className="history-note">
+              Kept in memory for this visit only. Nothing is written to disk, and closing the tab clears it.
+            </p>
+          </section>
         )}
 
         </section>
