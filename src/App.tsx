@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { AUDIO_EXTS, getSourceType, IMAGE_EXTS, REGISTRY } from './converters/registry';
-import type { ConversionResult, ParamControl, ParamValues, ProgressFn } from './converters/types';
-import { defaultsOf } from './converters/types';
+import type { ConversionResult, ParamControl, ParamValue, ParamValues, ProgressFn } from './converters/types';
+import { asPlacement, defaultsOf } from './converters/types';
 import { mergePdfs, imagesToPdf, mergeAudio } from './converters/batchConverters';
 import { onFFmpegStatus, terminateFFmpeg } from './converters/mediaConverters';
 import { SignaturePad } from './SignaturePad';
+import { PlacementPad } from './PlacementPad';
 import {
   isNativePlatform,
   isAndroidApp,
@@ -86,10 +87,12 @@ function ActionParams({
   params,
   values,
   onChange,
+  file,
 }: {
   params: ParamControl[];
   values: ParamValues;
-  onChange: (key: string, value: string | number) => void;
+  onChange: (key: string, value: ParamValue) => void;
+  file: File | null;
 }) {
   return (
     <div className="params">
@@ -100,6 +103,20 @@ function ActionParams({
             <div className="param-row param-full" key={c.key}>
               <span className="param-label">{c.label}</span>
               <SignaturePad value={String(v)} onChange={(val) => onChange(c.key, val)} />
+            </div>
+          );
+        }
+        if (c.kind === 'placement') {
+          if (!file) return null;
+          return (
+            <div className="param-row param-full" key={c.key}>
+              <span className="param-label">{c.label}</span>
+              <PlacementPad
+                file={file}
+                image={String(values[c.imageKey] ?? '')}
+                value={asPlacement(v)}
+                onChange={(p) => onChange(c.key, p)}
+              />
             </div>
           );
         }
@@ -225,7 +242,7 @@ export default function App() {
 
   const paramValues = selected?.params ? paramState[selected.key] ?? defaultsOf(selected.params) : undefined;
 
-  const setParam = (key: string, value: string | number) => {
+  const setParam = (key: string, value: ParamValue) => {
     if (!selected) return;
     const current = paramState[selected.key] ?? defaultsOf(selected.params);
     setParamState((s) => ({ ...s, [selected.key]: { ...current, [key]: value } }));
@@ -372,7 +389,7 @@ export default function App() {
             </div>
             {selected?.note && <p className="note">ⓘ {selected.note}</p>}
             {selected?.params && paramValues && (
-              <ActionParams params={selected.params} values={paramValues} onChange={setParam} />
+              <ActionParams params={selected.params} values={paramValues} onChange={setParam} file={files[0] ?? null} />
             )}
           </section>
         )}

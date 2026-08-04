@@ -30,8 +30,37 @@ export interface ConversionResult {
   view?: ResultView;
 }
 
+/**
+ * Where a stamp sits on a page, as FRACTIONS of the visible page (0..1, from the
+ * top-left). Fractions rather than pixels or points on purpose: preview scale,
+ * devicePixelRatio and canvas resolution then all cancel out, so what the user
+ * drags is exactly what gets drawn at full resolution.
+ *
+ * Height is deliberately absent. It is always derived from the stamp image's own
+ * aspect ratio, because storing width and height as fractions of a non-square
+ * page uses a different denominator per axis and silently distorts the stamp.
+ */
+export interface Placement {
+  /** Left edge, as a fraction of page width. */
+  x: number;
+  /** Top edge, as a fraction of page height. */
+  y: number;
+  /** Width, as a fraction of page width. */
+  w: number;
+  /** 1-based page number (PDFs only). */
+  page: number;
+}
+
+export type ParamValue = string | number | Placement;
+
 /** Values collected from an action's parameter controls, keyed by control key. */
-export type ParamValues = Record<string, string | number>;
+export type ParamValues = Record<string, ParamValue>;
+
+/** Narrow a param value to a Placement, falling back to a sensible default. */
+export function asPlacement(v: ParamValue | undefined): Placement {
+  if (v && typeof v === 'object' && 'x' in v) return v;
+  return { x: 0.62, y: 0.78, w: 0.25, page: 1 };
+}
 
 /** A declarative parameter control rendered under a selected action. */
 export type ParamControl =
@@ -46,7 +75,15 @@ export type ParamControl =
   | { kind: 'number'; key: string; label: string; default: number; min?: number; max?: number; step?: number; unit?: string }
   | { kind: 'range'; key: string; label: string; default: number; min: number; max: number; step?: number; unit?: string }
   | { kind: 'text'; key: string; label: string; default: string; placeholder?: string; password?: boolean }
-  | { kind: 'signature'; key: string; label: string; default: string };
+  | { kind: 'signature'; key: string; label: string; default: string }
+  | {
+      kind: 'placement';
+      key: string;
+      label: string;
+      default: Placement;
+      /** Param key holding the data-URL image being positioned. */
+      imageKey: string;
+    };
 
 /** A conversion function. Always async; may report progress; may take params. */
 export type ConvertFn = (file: File, onProgress?: ProgressFn, params?: ParamValues) => Promise<ConversionResult>;

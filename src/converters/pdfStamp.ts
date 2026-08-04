@@ -80,6 +80,57 @@ function canvasPng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   );
 }
 
+type AnyGeomPage = {
+  getSize(): { width: number; height: number };
+  getRotation(): { angle: number };
+};
+
+/**
+ * Convert a placement expressed as fractions of the VISIBLE page (top-left
+ * origin, which is what the user drags on) into pdf-lib draw coordinates
+ * (MediaBox, bottom-left origin), compensating for the page's /Rotate so the
+ * stamp lands where it was dropped and still reads upright.
+ *
+ * pdf-lib rotates about the anchor point, so the anchor is a different corner of
+ * the drawn box for each rotation: bottom-left at 0, bottom-right at 90,
+ * top-right at 180, top-left at 270. Passing aspect 0 collapses the box to a
+ * point, which is how a text baseline anchor is mapped.
+ */
+export function placeOnPage(
+  page: AnyGeomPage,
+  p: { x: number; y: number; w: number },
+  aspect: number,
+): { x: number; y: number; width: number; height: number; rotateDeg: number } {
+  const { width: mw, height: mh } = page.getSize();
+  const rot = ((page.getRotation().angle % 360) + 360) % 360;
+  const swap = rot === 90 || rot === 270;
+  const vw = swap ? mh : mw;
+  const vh = swap ? mw : mh;
+
+  const width = p.w * vw;
+  const height = width * aspect;
+  const vx = p.x * vw;
+  const vy = vh - p.y * vh - height; // flip from top-left to bottom-left origin
+
+  switch (rot) {
+    case 90:
+      return { x: mw - vy, y: vx, width, height, rotateDeg: 90 };
+    case 180:
+      return { x: mw - vx, y: mh - vy, width, height, rotateDeg: 180 };
+    case 270:
+      return { x: vy, y: mh - vx, width, height, rotateDeg: 270 };
+    default:
+      return { x: vx, y: vy, width, height, rotateDeg: 0 };
+  }
+}
+
+/** Visible page size in points, with /Rotate applied. */
+export function visibleSize(page: AnyGeomPage): { vw: number; vh: number } {
+  const { width, height } = page.getSize();
+  const rot = ((page.getRotation().angle % 360) + 360) % 360;
+  return rot === 90 || rot === 270 ? { vw: height, vh: width } : { vw: width, vh: height };
+}
+
 /** Build a stamp that draws `text`, transparently falling back to an image. */
 export async function makeTextStamp(
   doc: unknown,

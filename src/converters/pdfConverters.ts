@@ -1,6 +1,7 @@
 import type { ConversionResult, ParamValues, ProgressFn } from './types';
+import { asPlacement } from './types';
 import { addSuffix, formatBytes, pctSmaller, replaceExt, stripExt } from '../lib/strings';
-import { makeTextStamp } from './pdfStamp';
+import { makeTextStamp, placeOnPage, visibleSize } from './pdfStamp';
 
 type ImgTarget = 'png' | 'jpg';
 
@@ -343,35 +344,37 @@ export async function signPdf(
 ): Promise<ConversionResult> {
   const sig = String(params?.signature ?? '');
   if (!sig.startsWith('data:image')) throw new Error('Draw or upload your signature first.');
-  const { PDFDocument } = await import('pdf-lib');
-  const position = String(params?.position ?? 'bottom-right');
-  const sizePct = Math.max(5, Number(params?.size ?? 25));
+  const { PDFDocument, degrees } = await import('pdf-lib');
+  const place = asPlacement(params?.placement);
   const withDate = String(params?.date ?? 'today') === 'today';
-  const pageNum = Math.max(1, Math.round(Number(params?.page ?? 1)));
 
   const doc = await PDFDocument.load(new Uint8Array(await file.arrayBuffer()));
   const pages = doc.getPages();
-  const page = pages[Math.min(pageNum, pages.length) - 1];
-  const { width, height } = page.getSize();
+  const page = pages[Math.min(Math.max(1, place.page), pages.length) - 1];
 
-  const pngBytes = new Uint8Array(await (await fetch(sig)).arrayBuffer());
-  const png = await doc.embedPng(pngBytes);
-  const sw = (sizePct / 100) * width;
-  const sh = sw * (png.height / png.width);
-  const margin = Math.min(width, height) * 0.03;
-  const right = position.includes('right');
-  const bottom = position.includes('bottom');
-  const sx = right ? width - sw - margin : margin;
-  const sy = bottom ? margin : height - sh - margin;
-  page.drawImage(png, { x: sx, y: sy, width: sw, height: sh });
+  const png = await doc.embedPng(new Uint8Array(await (await fetch(sig)).arrayBuffer()));
+  const aspect = png.height / png.width;
+  const g = placeOnPage(page, place, aspect);
+  page.drawImage(png, {
+    x: g.x,
+    y: g.y,
+    width: g.width,
+    height: g.height,
+    ...(g.rotateDeg ? { rotate: degrees(g.rotateDeg) } : {}),
+  });
 
   if (withDate) {
-    const date = new Date().toLocaleDateString();
-    const stamp = await makeTextStamp(doc, date, { color: [0.1, 0.1, 0.2] });
-    const fs = Math.max(8, sw * 0.1);
-    const dx = right ? sx + sw - stamp.widthAt(fs) : sx;
-    const dy = bottom ? sy + sh + 3 : sy - fs - 3;
-    stamp.draw(page, { x: dx, y: dy, size: fs });
+    const { vw, vh } = visibleSize(page);
+    const stamp = await makeTextStamp(doc, new Date().toLocaleDateString(), { color: [0.1, 0.1, 0.2] });
+    const sigW = place.w * vw;
+    // Proportional to the signature, but capped: a date line in a document reads
+    // wrong above ~14pt however large the signature is drawn.
+    const size = Math.min(14, Math.max(7, sigW * 0.09));
+    // Sit the date just under the signature, in the frame the user was looking
+    // at. aspect 0 collapses the placement box to the text's baseline anchor.
+    const baselineY = (place.y * vh + sigW * aspect + size * 0.95) / vh;
+    const d = placeOnPage(page, { x: place.x, y: baselineY, w: 0 }, 0);
+    stamp.draw(page, { x: d.x, y: d.y, size, rotateDeg: d.rotateDeg });
   }
 
   const out = await doc.save();

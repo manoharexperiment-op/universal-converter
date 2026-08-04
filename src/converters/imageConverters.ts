@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import type { BaseSession } from '@bunnio/rembg-web';
 import type { ConversionResult, ParamValues, ProgressFn } from './types';
+import { asPlacement } from './types';
 import { addSuffix, formatBytes, pctSmaller, replaceExt, stripExt } from '../lib/strings';
 
 const MIME: Record<string, string> = {
@@ -284,8 +285,7 @@ export async function signPhoto(
 ): Promise<ConversionResult> {
   const sig = String(params?.signature ?? '');
   if (!sig.startsWith('data:image')) throw new Error('Draw or upload your signature first.');
-  const position = String(params?.position ?? 'bottom-right');
-  const sizePct = Math.max(5, Number(params?.size ?? 25));
+  const place = asPlacement(params?.placement);
   const withDate = String(params?.date ?? 'today') === 'today';
 
   const [img, sigImg] = await Promise.all([loadImage(file), loadImageSrc(sig)]);
@@ -298,23 +298,21 @@ export async function signPhoto(
   if (!ctx) throw new Error('Canvas is not available in this browser.');
   ctx.drawImage(img, 0, 0);
 
-  const sw = (sizePct / 100) * w;
+  // Canvas and the preview share a top-left origin, so the fractions map directly.
+  const sw = place.w * w;
   const sh = sw * (sigImg.naturalHeight / Math.max(1, sigImg.naturalWidth));
-  const margin = Math.round(Math.min(w, h) * 0.03);
-  const right = position.includes('right');
-  const bottom = position.includes('bottom');
-  const sx = right ? w - sw - margin : margin;
-  const sy = bottom ? h - sh - margin : margin;
+  const sx = place.x * w;
+  const sy = place.y * h;
   ctx.drawImage(sigImg, sx, sy, sw, sh);
 
   if (withDate) {
     const date = new Date().toLocaleDateString();
-    const fs = Math.max(12, Math.round(sw * 0.13));
+    const fs = Math.max(12, Math.round(sw * 0.1));
     ctx.font = `${fs}px sans-serif`;
-    ctx.textAlign = right ? 'right' : 'left';
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
-    const dx = right ? sx + sw : sx;
-    const dy = bottom ? sy - 6 : sy + sh + fs + 2;
+    const dx = sx;
+    const dy = sy + sh + fs * 0.95;
     ctx.lineWidth = Math.max(2, fs / 8);
     ctx.strokeStyle = 'rgba(255,255,255,0.85)'; // halo for legibility on any photo
     ctx.strokeText(date, dx, dy);
