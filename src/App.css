@@ -865,3 +865,187 @@
   border-color: var(--blue-bright);
   color: var(--text);
 }
+
+/* ---------- Mode tabs (Files / QR / Units) ---------- */
+.modes {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.mode-btn {
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.mode-btn:hover {
+  border-color: var(--blue-bright);
+  color: var(--text);
+}
+.mode-btn.active {
+  background: linear-gradient(135deg, var(--blue), #1d4ed8);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* ---------- QR maker ---------- */
+.qr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qr-field textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+.qr-field textarea:focus {
+  outline: none;
+  border-color: var(--blue-bright);
+}
+.qr-stage {
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: #fff;
+}
+.qr-img {
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  image-rendering: pixelated;
+}
+.qr-empty {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  text-align: center;
+}
+.qr-note {
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-3);
+  text-align: center;
+}
+
+/* ---------- Unit converter ---------- */
+.uc-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.uc-cats button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 0.83rem;
+  cursor: pointer;
+}
+.uc-cats button:hover {
+  border-color: var(--blue-bright);
+  color: var(--text);
+}
+.uc-cats button[aria-pressed='true'] {
+  background: linear-gradient(135deg, var(--blue), #1d4ed8);
+  border-color: transparent;
+  color: #fff;
+}
+.uc-cat-icon {
+  font-size: 1rem;
+}
+.uc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.uc-input,
+.uc-select {
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  min-width: 0;
+}
+.uc-input {
+  flex: 1 1 120px;
+  font-variant-numeric: tabular-nums;
+}
+.uc-select {
+  flex: 1 1 150px;
+}
+.uc-input:focus,
+.uc-select:focus {
+  outline: none;
+  border-color: var(--blue-bright);
+}
+.uc-swap {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  margin: 0 auto;
+  display: block;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+.uc-swap:hover {
+  border-color: var(--blue-bright);
+  color: var(--text);
+}
+.uc-result {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.uc-result-value {
+  display: block;
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--text);
+  word-break: break-all;
+  font-variant-numeric: tabular-nums;
+}
+.uc-result-unit {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.9rem;
+  color: var(--text-2);
+}
+.uc-equation {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-3);
+}

@@ -7,6 +7,8 @@ import { onFFmpegStatus, terminateFFmpeg } from './converters/mediaConverters';
 import { SignaturePad } from './SignaturePad';
 import { PlacementPad } from './PlacementPad';
 import { FileList } from './FileList';
+import { UnitConverter } from './tools/UnitConverter';
+import { QrMaker } from './tools/QrMaker';
 import { runBatch, MAX_BATCH_FILES } from './converters/batchRunner';
 import {
   isNativePlatform,
@@ -76,6 +78,18 @@ interface Action {
   /** Builds controls by reading the file (PDF form fields). */
   inspect?: InspectFn;
   run: (onProgress?: ProgressFn, params?: ParamValues) => Promise<ConversionResult>;
+}
+
+const MODES: { id: Mode; label: string; icon: string }[] = [
+  { id: 'files', label: 'Files', icon: '📁' },
+  { id: 'qr', label: 'QR code', icon: '🔳' },
+  { id: 'units', label: 'Units', icon: '📏' },
+];
+type Mode = 'files' | 'qr' | 'units';
+
+function modeFromHash(): Mode {
+  const h = window.location.hash.replace(/^#\/?/, '');
+  return h === 'qr' || h === 'units' ? h : 'files';
 }
 
 interface HistoryItem {
@@ -259,6 +273,9 @@ export default function App() {
   const [inspected, setInspected] = useState<{ key: string; params: ParamControl[]; message?: string } | null>(null);
   const [inspecting, setInspecting] = useState(false);
   const [view, setView] = useState<ResultView | null>(null);
+  // Hash routing, not a router library: the Electron and Capacitor builds serve
+  // from origins where real path routes would 404.
+  const [mode, setMode] = useState<Mode>(() => modeFromHash());
   const canceledRef = useRef(false);
 
   const reset = () => {
@@ -476,7 +493,26 @@ export default function App() {
       </header>
 
       <main className="main">
-        <section className="panel">
+        <nav className="modes">
+          {MODES.map((m) => (
+            <button
+              key={m.id}
+              className={`mode-btn ${mode === m.id ? 'active' : ''}`}
+              onClick={() => { setMode(m.id); window.location.hash = m.id === 'files' ? '' : `/${m.id}`; }}
+            >
+              <span aria-hidden="true">{m.icon}</span> {m.label}
+            </button>
+          ))}
+        </nav>
+
+        {mode === 'qr' && (
+          <section className="panel"><QrMaker /></section>
+        )}
+        {mode === 'units' && (
+          <section className="panel"><UnitConverter /></section>
+        )}
+
+        <section className="panel" hidden={mode !== 'files'}>
         <div
           {...getRootProps()}
           className={`dropzone ${isDragActive ? 'active' : ''} ${files.length ? 'has-file' : ''}`}
