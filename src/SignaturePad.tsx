@@ -65,6 +65,7 @@ export function SignaturePad({ value, onChange }: { value: string; onChange: (v:
         onPointerDown={down}
         onPointerMove={move}
         onPointerUp={up}
+        onPointerCancel={up}
         onPointerLeave={up}
       />
       <div className="sigpad-actions">

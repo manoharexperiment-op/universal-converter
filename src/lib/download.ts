@@ -36,7 +36,7 @@ export type SaveOutcome = 'downloads' | 'shared';
  */
 export async function saveToDevice(blob: Blob, filename: string): Promise<SaveOutcome> {
   const name = sanitizeFilename(filename);
-  const { uri } = await writeToCache(blob, name);
+  const { uri, path } = await writeToCache(blob, name);
 
   if (Capacitor.getPlatform() === 'android') {
     try {
@@ -47,6 +47,9 @@ export async function saveToDevice(blob: Blob, filename: string): Promise<SaveOu
         mimeType: mimeFor(name),
         subDirectory: 'MunnX Convertor',
       });
+      // The real copy is in Downloads now, so drop the staging copy rather than
+      // leaving the user's file sitting in app cache.
+      await deleteCached(path);
       return 'downloads';
     } catch {
       // Android 9-, or the save failed for some reason — fall back to sharing.
@@ -55,6 +58,33 @@ export async function saveToDevice(blob: Blob, filename: string): Promise<SaveOu
 
   await shareUri(uri, name);
   return 'shared';
+}
+
+/** Best-effort delete of a staged export; never fatal to the save itself. */
+async function deleteCached(path: string): Promise<void> {
+  try {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    await Filesystem.deleteFile({ path, directory: Directory.Cache });
+  } catch {
+    /* already gone, or the platform doesn't allow it */
+  }
+}
+
+/**
+ * Delete every staged export left behind by a previous session.
+ *
+ * Sharing hands a file:// URI to another app, so the staging copy can't be
+ * removed immediately without breaking the share. Clearing at startup keeps the
+ * "your files never leave your device, and we don't keep them" promise honest.
+ */
+export async function purgeExportCache(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    await Filesystem.rmdir({ path: 'exports', directory: Directory.Cache, recursive: true });
+  } catch {
+    /* nothing staged yet */
+  }
 }
 
 /** NATIVE "Share": write to cache then open the system share sheet. */
@@ -86,7 +116,7 @@ export function isShareDismissal(message: string): boolean {
 const CHUNK_BYTES = 3 * 1024 * 1024; // 3,145,728 — divisible by 3
 
 /** Write the blob into the app cache dir (chunked) and return its file:// URI. */
-async function writeToCache(blob: Blob, name: string): Promise<{ uri: string }> {
+async function writeToCache(blob: Blob, name: string): Promise<{ uri: string; path: string }> {
   const { Filesystem, Directory } = await import('@capacitor/filesystem');
   const directory = Directory.Cache;
   const path = `exports/${name}`;
@@ -105,7 +135,8 @@ async function writeToCache(blob: Blob, name: string): Promise<{ uri: string }> 
     }
   }
 
-  return Filesystem.getUri({ path, directory });
+  const { uri } = await Filesystem.getUri({ path, directory });
+  return { uri, path };
 }
 
 // Characters illegal in a filesystem path segment: \ / : * ? " < > | and

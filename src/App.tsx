@@ -147,7 +147,10 @@ function ActionParams({
 
 export default function App() {
   const [files, setFiles] = useState<File[]>([]);
-  const [selected, setSelected] = useState<Action | null>(null);
+  // Store the KEY, not the Action. An Action closes over `files`, so holding the
+  // object would silently run against a stale file list once the list can change
+  // (reorder, batch, per-file remove) while an action is already selected.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [paramState, setParamState] = useState<Record<string, ParamValues>>({});
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0); // 0..1, 0 means "indeterminate"
@@ -161,7 +164,8 @@ export default function App() {
 
   const reset = () => {
     setFiles([]);
-    setSelected(null);
+    setSelectedKey(null);
+    setParamState({});
     setError('');
     setDone('');
     setProgress(0);
@@ -171,7 +175,11 @@ export default function App() {
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted.length) {
       setFiles(accepted);
-      setSelected(null);
+      setSelectedKey(null);
+      // Params are keyed by action, and actions are keyed by target+label, so a
+      // new file would otherwise inherit the previous file's settings (a page
+      // number past the end of a shorter PDF, for instance).
+      setParamState({});
       setError('');
       setDone('');
       setProgress(0);
@@ -212,6 +220,8 @@ export default function App() {
     }
     return [];
   }, [files]);
+
+  const selected = useMemo(() => actions.find((a) => a.key === selectedKey) ?? null, [actions, selectedKey]);
 
   const paramValues = selected?.params ? paramState[selected.key] ?? defaultsOf(selected.params) : undefined;
 
@@ -353,7 +363,7 @@ export default function App() {
                 <button
                   key={a.key}
                   className={`format-btn ${selected?.key === a.key ? 'selected' : ''}`}
-                  onClick={() => setSelected(a)}
+                  onClick={() => setSelectedKey(a.key)}
                   title={a.note}
                 >
                   {a.icon} {a.label}

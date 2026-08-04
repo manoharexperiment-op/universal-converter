@@ -2,7 +2,12 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { Capacitor } from '@capacitor/core';
 import App from './App';
+import { purgeExportCache } from './lib/download';
 import './index.css';
+
+// Sharing a converted file has to stage a copy in app cache, and the receiving
+// app still needs it after we hand it over. Clear last session's leftovers now.
+void purgeExportCache();
 
 // Defensive: in the native app, make sure no service worker is left controlling
 // the WebView. A SW registered by an older PWA-enabled build keeps serving a

@@ -1,5 +1,6 @@
 import type { ConversionResult, ParamValues, ProgressFn } from './types';
 import { addSuffix, formatBytes, pctSmaller, replaceExt, stripExt } from '../lib/strings';
+import { makeTextStamp } from './pdfStamp';
 
 type ImgTarget = 'png' | 'jpg';
 
@@ -342,7 +343,7 @@ export async function signPdf(
 ): Promise<ConversionResult> {
   const sig = String(params?.signature ?? '');
   if (!sig.startsWith('data:image')) throw new Error('Draw or upload your signature first.');
-  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const { PDFDocument } = await import('pdf-lib');
   const position = String(params?.position ?? 'bottom-right');
   const sizePct = Math.max(5, Number(params?.size ?? 25));
   const withDate = String(params?.date ?? 'today') === 'today';
@@ -365,13 +366,12 @@ export async function signPdf(
   page.drawImage(png, { x: sx, y: sy, width: sw, height: sh });
 
   if (withDate) {
-    const font = await doc.embedFont(StandardFonts.Helvetica);
     const date = new Date().toLocaleDateString();
+    const stamp = await makeTextStamp(doc, date, { color: [0.1, 0.1, 0.2] });
     const fs = Math.max(8, sw * 0.1);
-    const tw = font.widthOfTextAtSize(date, fs);
-    const dx = right ? sx + sw - tw : sx;
+    const dx = right ? sx + sw - stamp.widthAt(fs) : sx;
     const dy = bottom ? sy + sh + 3 : sy - fs - 3;
-    page.drawText(date, { x: dx, y: dy, size: fs, font, color: rgb(0.1, 0.1, 0.2) });
+    stamp.draw(page, { x: dx, y: dy, size: fs });
   }
 
   const out = await doc.save();
@@ -384,35 +384,34 @@ export async function watermarkPdf(
   _onProgress?: ProgressFn,
   params?: ParamValues,
 ): Promise<ConversionResult> {
-  const { PDFDocument, StandardFonts, rgb, degrees } = await import('pdf-lib');
+  const { PDFDocument } = await import('pdf-lib');
   const text = String(params?.text ?? '').trim() || 'WATERMARK';
   const opacity = Math.max(0.03, Math.min(1, Number(params?.opacity ?? 35) / 100));
   const position = String(params?.position ?? 'diagonal');
 
   const doc = await PDFDocument.load(new Uint8Array(await file.arrayBuffer()));
-  const font = await doc.embedFont(StandardFonts.HelveticaBold);
-  const base = { font, color: rgb(0.5, 0.5, 0.5), opacity };
+  const stamp = await makeTextStamp(doc, text, { color: [0.5, 0.5, 0.5], bold: true });
 
   for (const page of doc.getPages()) {
     const { width, height } = page.getSize();
     const min = Math.min(width, height);
     if (position === 'center') {
       const size = Math.max(14, min * 0.07);
-      page.drawText(text, { ...base, size, x: (width - font.widthOfTextAtSize(text, size)) / 2, y: height / 2 });
+      stamp.draw(page, { size, opacity, x: (width - stamp.widthAt(size)) / 2, y: height / 2 });
     } else if (position === 'bottom-right') {
       const size = Math.max(10, min * 0.035);
-      page.drawText(text, { ...base, size, x: width - font.widthOfTextAtSize(text, size) - 24, y: 24 });
+      stamp.draw(page, { size, opacity, x: width - stamp.widthAt(size) - 24, y: 24 });
     } else if (position === 'tile') {
       const size = Math.max(10, min * 0.035);
-      const tw = font.widthOfTextAtSize(text, size);
+      const tw = stamp.widthAt(size);
       const stepX = tw + size * 4;
       const stepY = size * 6;
       for (let y = 0; y < height + stepY; y += stepY) {
-        for (let x = -tw; x < width; x += stepX) page.drawText(text, { ...base, size, x, y, rotate: degrees(35) });
+        for (let x = -tw; x < width; x += stepX) stamp.draw(page, { size, opacity, x, y, rotateDeg: 35 });
       }
     } else {
       const size = Math.max(18, min * 0.08);
-      page.drawText(text, { ...base, size, x: width * 0.12, y: height * 0.32, rotate: degrees(40) });
+      stamp.draw(page, { size, opacity, x: width * 0.12, y: height * 0.32, rotateDeg: 40 });
     }
   }
 

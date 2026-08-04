@@ -1,12 +1,33 @@
 /** Progress callback: receives a fraction from 0..1. */
 export type ProgressFn = (fraction: number) => void;
 
+/** A labelled row in a `fields` result view. */
+export interface ViewRow {
+  label: string;
+  value: string;
+  /** Draws attention to privacy-sensitive findings such as GPS coordinates. */
+  level?: 'alert' | 'warn';
+}
+
+/** A group of rows in a `fields` result view. */
+export interface ViewGroup {
+  title: string;
+  rows: ViewRow[];
+}
+
+/** Some results are meant to be read on screen, not just downloaded. */
+export type ResultView =
+  | { kind: 'text'; text: string }
+  | { kind: 'fields'; groups: ViewGroup[] };
+
 /** The output of a conversion: an in-memory blob plus a suggested filename. */
 export interface ConversionResult {
   blob: Blob;
   filename: string;
   /** Optional message to show instead of the generic success text. */
   note?: string;
+  /** Render this on screen alongside the download. */
+  view?: ResultView;
 }
 
 /** Values collected from an action's parameter controls, keyed by control key. */

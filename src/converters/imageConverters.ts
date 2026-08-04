@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import type { BaseSession } from '@bunnio/rembg-web';
 import type { ConversionResult, ParamValues, ProgressFn } from './types';
 import { addSuffix, formatBytes, pctSmaller, replaceExt, stripExt } from '../lib/strings';
 
@@ -334,6 +335,31 @@ export async function signPhoto(
  * fully offline, and runs inside the Android WebView without SharedArrayBuffer /
  * COOP-COEP (the thing that broke the previous CDN-based library).
  */
+// The cutout model is ~4.5 MB and takes seconds to load, so the session is
+// created once and reused for every subsequent image.
+let rembgSession: Promise<BaseSession> | null = null;
+
+function getRembgSession(base: string): Promise<BaseSession> {
+  if (!rembgSession) {
+    rembgSession = (async () => {
+      // Configure the shared onnxruntime-web instance BEFORE rembg creates a
+      // session. Force single-threaded so it runs in the WebView without
+      // SharedArrayBuffer / COOP-COEP. The wasm itself is bundled by Vite (its
+      // URL resolves via import.meta.url to a same-origin asset), so it's
+      // offline with no CDN and no duplicate copy.
+      const ort = await import('onnxruntime-web');
+      ort.env.wasm.numThreads = 1;
+      const { newSession, rembgConfig } = await import('@bunnio/rembg-web');
+      rembgConfig.setCustomModelPath('u2netp', `${base}/models/u2netp.onnx`);
+      return newSession('u2netp');
+    })().catch((e) => {
+      rembgSession = null; // let the next attempt retry a failed load
+      throw e;
+    });
+  }
+  return rembgSession;
+}
+
 export async function removeImageBackground(
   file: File,
   onProgress?: ProgressFn,
@@ -345,13 +371,8 @@ export async function removeImageBackground(
   // COOP-COEP. The wasm itself is bundled by Vite (its URL resolves via
   // import.meta.url to a same-origin asset) — so it's offline with no CDN and
   // no duplicate copy.
-  const ort = await import('onnxruntime-web');
-  ort.env.wasm.numThreads = 1;
-
-  const { remove, newSession, rembgConfig } = await import('@bunnio/rembg-web');
-  rembgConfig.setCustomModelPath('u2netp', `${base}/models/u2netp.onnx`);
-
-  const session = await newSession('u2netp');
+  const { remove } = await import('@bunnio/rembg-web');
+  const session = await getRembgSession(base);
   const blob = await remove(file, {
     session,
     postProcessMask: true,
@@ -366,31 +387,58 @@ export async function removeImageBackground(
   };
 }
 
+type OcrWorker = { recognize(image: File | Blob): Promise<{ data: { text: string } }> };
+
+// The OCR engine is booted once and reused. Tesseract's logger is fixed at
+// worker-creation time, so per-call progress is routed through this delegate.
+let ocrWorker: Promise<OcrWorker> | null = null;
+let ocrProgress: ProgressFn | undefined;
+
+function getOcrWorker(): Promise<OcrWorker> {
+  if (!ocrWorker) {
+    ocrWorker = (async () => {
+      const { createWorker } = await import('tesseract.js');
+      // Absolute URLs (with origin) so the blob worker can resolve them: root-
+      // relative paths fail inside a blob: worker.
+      const base = window.location.origin;
+      // The language data ships as eng.traineddata.gz. On the web that .gz is
+      // served as-is (gzip: true). But Android's APK packager (AAPT) auto-
+      // decompresses any .gz asset and strips the extension, so inside the
+      // native app the file is plain eng.traineddata: request it with
+      // gzip: false, or Tesseract fetches a .gz that doesn't exist and hangs
+      // forever at "recognizing".
+      const native = Capacitor.isNativePlatform();
+      return createWorker('eng', 1, {
+        // Self-hosted worker / core / language data (in /public/tesseract), so
+        // OCR never contacts a third-party CDN and works offline and privately.
+        workerPath: `${base}/tesseract/worker.min.js`,
+        corePath: `${base}/tesseract`,
+        langPath: `${base}/tesseract/lang`,
+        gzip: !native,
+        logger: (m: { status: string; progress: number }) => {
+          if (m.status === 'recognizing text') ocrProgress?.(m.progress);
+        },
+      }) as unknown as OcrWorker;
+    })().catch((e) => {
+      ocrWorker = null; // let the next attempt retry a failed boot
+      throw e;
+    });
+  }
+  return ocrWorker;
+}
+
 /** Extract text from an image using on-device OCR (Tesseract.js / WASM). */
 export async function imageToText(file: File, onProgress?: ProgressFn): Promise<ConversionResult> {
-  const Tesseract = (await import('tesseract.js')).default;
-  // Absolute URLs (with origin) so the blob worker can resolve them — root-
-  // relative paths fail inside a blob: worker.
-  const base = window.location.origin;
-  // The language data ships as eng.traineddata.gz. On the web that .gz is served
-  // as-is (gzip: true). But Android's APK packager (AAPT) auto-decompresses any
-  // .gz asset and strips the extension, so inside the native app the file is
-  // plain eng.traineddata — request it with gzip: false, or Tesseract fetches a
-  // .gz that doesn't exist and hangs forever at "recognizing".
-  const native = Capacitor.isNativePlatform();
-  const { data } = await Tesseract.recognize(file, 'eng', {
-    // Self-hosted worker / core / language data (in /public/tesseract) — OCR
-    // never contacts a third-party CDN, so it works offline & fully private.
-    workerPath: `${base}/tesseract/worker.min.js`,
-    corePath: `${base}/tesseract`,
-    langPath: `${base}/tesseract/lang`,
-    gzip: !native,
-    logger: (m: { status: string; progress: number }) => {
-      if (m.status === 'recognizing text') onProgress?.(m.progress);
-    },
-  });
-  return {
-    blob: new Blob([data.text], { type: 'text/plain;charset=utf-8' }),
-    filename: replaceExt(file.name, 'txt'),
-  };
+  const worker = await getOcrWorker();
+  ocrProgress = onProgress;
+  try {
+    const { data } = await worker.recognize(file);
+    return {
+      blob: new Blob([data.text], { type: 'text/plain;charset=utf-8' }),
+      filename: replaceExt(file.name, 'txt'),
+      view: { kind: 'text', text: data.text },
+    };
+  } finally {
+    ocrProgress = undefined;
+  }
 }
