@@ -41,26 +41,75 @@ const ICONS: Record<string, string> = {
   mp3: '🎵', wav: '🎵', m4a: '🎵', aac: '🎵', ogg: '🎵', flac: '🎵', opus: '🎵', wma: '🎵',
 };
 
-const TOOLS: { icon: string; title: string; desc: string; tint: string }[] = [
-  { icon: '🖼️', title: 'Image Convert', desc: 'PNG · JPG · WebP · BMP', tint: 'blue' },
-  { icon: '🗜️', title: 'Compress', desc: 'Shrink images & PDFs', tint: 'teal' },
-  { icon: '📐', title: 'Resize Image', desc: 'Exact size or %', tint: 'teal' },
-  { icon: '💧', title: 'Watermark', desc: 'Text on images & PDF', tint: 'purple' },
-  { icon: '🪄', title: 'Remove BG', desc: 'AI cutout → transparent', tint: 'pink' },
-  { icon: '✍️', title: 'Sign & Date', desc: 'Sign photos & PDFs', tint: 'blue' },
-  { icon: '📄', title: 'Image → PDF', desc: 'Combine into one PDF', tint: 'orange' },
-  { icon: '🔤', title: 'Image → Text', desc: 'OCR, on-device', tint: 'green' },
-  { icon: '📝', title: 'PDF → Word', desc: 'Editable .docx', tint: 'blue' },
-  { icon: '🖨️', title: 'PDF → Image', desc: 'Pages to PNG / JPG', tint: 'orange' },
-  { icon: '✂️', title: 'PDF Tools', desc: 'Split · Rotate · Merge', tint: 'red' },
-  { icon: '🔒', title: 'Protect PDF', desc: 'Add a password', tint: 'amber' },
-  { icon: '🔓', title: 'Unlock PDF', desc: 'Remove a password', tint: 'green' },
-  { icon: '🧽', title: 'Remove Watermark', desc: 'PDF layers only', tint: 'teal' },
-  { icon: '📊', title: 'Excel ↔ CSV', desc: 'Spreadsheets', tint: 'green' },
-  { icon: '🎬', title: 'Video Convert', desc: 'MP4 · WebM · GIF', tint: 'pink' },
-  { icon: '🎵', title: 'Audio Convert', desc: 'MP3 · WAV · trim', tint: 'purple' },
-  { icon: '📑', title: 'Docs → PDF', desc: 'Markdown · HTML · text', tint: 'blue' },
-  { icon: '📚', title: 'Merge Files', desc: 'PDFs · images · audio', tint: 'amber' },
+interface Tool {
+  icon: string;
+  title: string;
+  desc: string;
+  tint: string;
+  /** Jumps to another tab instead of asking for a file. */
+  mode?: Mode;
+}
+
+// Grouped rather than one long grid: 24 identically-weighted cards read as a wall,
+// and headings let someone scan to the section they want instead of every tile.
+const TOOL_GROUPS: { title: string; tools: Tool[] }[] = [
+  {
+    title: 'Photos & images',
+    tools: [
+      { icon: '🖼️', title: 'Convert', desc: 'PNG · JPG · WebP', tint: 'blue' },
+      { icon: '🗜️', title: 'Compress', desc: 'Make the file smaller', tint: 'teal' },
+      { icon: '📐', title: 'Resize', desc: 'Exact width & height', tint: 'teal' },
+      { icon: '🪄', title: 'Remove BG', desc: 'AI cutout of the subject, on-device', tint: 'pink' },
+      { icon: '💧', title: 'Watermark', desc: 'Stamp your text on top', tint: 'purple' },
+      { icon: '🔤', title: 'Photo to text', desc: 'Reads the words out', tint: 'green' },
+    ],
+  },
+  {
+    title: 'PDF',
+    tools: [
+      { icon: '📝', title: 'PDF to Word', desc: 'Editable .docx', tint: 'blue' },
+      { icon: '📊', title: 'PDF to Excel', desc: 'Tables into a sheet', tint: 'green' },
+      { icon: '🖨️', title: 'PDF to image', desc: 'Every page as a picture', tint: 'orange' },
+      { icon: '📄', title: 'Images to PDF', desc: 'Combine into one file', tint: 'orange' },
+      { icon: '✂️', title: 'Organise pages', desc: 'Split, rotate or merge', tint: 'red' },
+      { icon: '🗜️', title: 'Shrink PDF', desc: 'Best for scans', tint: 'teal' },
+    ],
+  },
+  {
+    title: 'Sign & secure',
+    tools: [
+      { icon: '✍️', title: 'Sign & date', desc: 'Drag it where you want', tint: 'blue' },
+      { icon: '⌨️', title: 'Add text', desc: 'Type anywhere on a PDF, even scans', tint: 'blue' },
+      { icon: '🧾', title: 'Fill a form', desc: 'For PDFs with fields', tint: 'amber' },
+      { icon: '🔒', title: 'Add password', desc: 'Lock a PDF', tint: 'amber' },
+      { icon: '🔓', title: 'Unlock PDF', desc: 'Remove a password you know', tint: 'green' },
+      { icon: '🧽', title: 'Remove watermark', desc: 'Separate layers only', tint: 'teal' },
+    ],
+  },
+  {
+    title: 'Privacy',
+    tools: [
+      { icon: '📍', title: 'Hidden data', desc: 'See where a photo was taken', tint: 'red' },
+      { icon: '🛡️', title: 'Strip data', desc: 'Remove it with no quality loss', tint: 'green' },
+    ],
+  },
+  {
+    title: 'Video, audio & documents',
+    tools: [
+      { icon: '🎬', title: 'Video', desc: 'MP4 · WebM · GIF', tint: 'pink' },
+      { icon: '🎵', title: 'Audio', desc: 'MP3 · WAV · trim', tint: 'purple' },
+      { icon: '📑', title: 'Docs to PDF', desc: 'Word · Markdown · text', tint: 'blue' },
+      { icon: '📋', title: 'Excel ↔ CSV', desc: 'Spreadsheets', tint: 'green' },
+    ],
+  },
+  {
+    title: 'Everyday extras',
+    tools: [
+      { icon: '🔳', title: 'Make QR code', desc: 'Link, UPI or any text', tint: 'blue', mode: 'qr' },
+      { icon: '📷', title: 'Read QR code', desc: 'From a photo of one', tint: 'purple' },
+      { icon: '📏', title: 'Unit converter', desc: 'cm, kg, gaj, acre…', tint: 'amber', mode: 'units' },
+    ],
+  },
 ];
 
 interface Action {
@@ -704,17 +753,34 @@ export default function App() {
         </section>
 
         <section className="tools">
-          <h3>One app, every file</h3>
-          <p className="tools-sub">Images, PDFs, documents, audio &amp; video — converted right on your device.</p>
-          <div className="tools-grid">
-            {TOOLS.map((t) => (
-              <button className="tool-card" key={t.title} onClick={open} title={`${t.title} — ${t.desc}`}>
-                <span className={`tool-icon tint-${t.tint}`}>{t.icon}</span>
-                <span className="tool-title">{t.title}</span>
-                <span className="tool-desc">{t.desc}</span>
-              </button>
-            ))}
-          </div>
+          <h3>Everything it can do</h3>
+          <p className="tools-sub">Drop a file above and only the tools that fit it are offered.</p>
+          {TOOL_GROUPS.map((g) => (
+            <div className="tool-group" key={g.title}>
+              <h4 className="tool-group-title">{g.title}</h4>
+              <div className="tools-grid">
+                {g.tools.map((t) => (
+                  <button
+                    className="tool-card"
+                    key={t.title}
+                    onClick={() => {
+                      if (t.mode) {
+                        setMode(t.mode);
+                        window.location.hash = `/${t.mode}`;
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      } else {
+                        open();
+                      }
+                    }}
+                    title={`${t.title}: ${t.desc}`}
+                  >
+                    <span className={`tool-icon tint-${t.tint}`}>{t.icon}</span>
+                    <span className="tool-title">{t.title}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </section>
       </main>
 

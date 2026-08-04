@@ -453,68 +453,80 @@
 
 /* ---------- Tools grid ---------- */
 .tools {
-  margin-top: 32px;
-  text-align: center;
+  margin-top: 34px;
 }
 .tools h3 {
-  font-size: 1.32rem;
+  font-size: 1.24rem;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   letter-spacing: -0.2px;
+  text-align: center;
 }
 .tools-sub {
-  color: var(--text-2);
-  font-size: 0.92rem;
-  max-width: 28rem;
-  margin: 0 auto 18px;
+  color: var(--text-3);
+  font-size: 0.86rem;
+  max-width: 26rem;
+  margin: 0 auto 22px;
   line-height: 1.5;
+  text-align: center;
+}
+.tool-group + .tool-group {
+  margin-top: 20px;
+}
+.tool-group-title {
+  margin: 0 0 9px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-3);
 }
 .tools-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 8px;
 }
 .tool-card {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-  padding: 18px 12px 15px;
+  min-height: 50px;
+  gap: 9px;
+  text-align: left;
+  padding: 10px 11px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  transition: border-color 0.16s ease, background 0.16s ease;
   font: inherit;
   color: inherit;
+  min-width: 0;
 }
 .tool-card:hover {
-  transform: translateY(-3px);
   border-color: var(--border-strong);
   background: var(--surface-2);
 }
 .tool-icon {
-  width: 48px;
-  height: 48px;
+  width: 32px;
+  height: 32px;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  border-radius: 13px;
-  margin-bottom: 11px;
+  font-size: 1.05rem;
+  border-radius: 9px;
 }
 .tool-title {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.83rem;
   color: var(--text);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
-.tool-desc {
-  font-size: 0.78rem;
-  color: var(--text-3);
-  line-height: 1.35;
-  margin-top: 3px;
-}
+
+
+
 .tint-blue   { background: rgba(56, 189, 248, 0.16); }
 .tint-orange { background: rgba(249, 115, 22, 0.18); }
 .tint-green  { background: rgba(74, 222, 128, 0.15); }
@@ -1048,4 +1060,31 @@
   text-align: center;
   font-size: 0.8rem;
   color: var(--text-3);
+}
+
+/* The converter panel wants a narrow, focused column, but the tool directory
+   reads as a wall at that width. Let it break out on wide screens only. */
+@media (min-width: 800px) {
+  .tools {
+    width: min(1000px, calc(100vw - 48px));
+    margin-left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+/* On a phone the two-column cards have no room for a subtitle, and a clipped
+   one reads as broken. The titles carry the meaning on their own. */
+@media (max-width: 460px) {
+  .tools-grid {
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  }
+  .tool-card {
+    min-height: 48px;
+    padding: 9px 10px;
+  }
+  .tool-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 0.95rem;
+  }
 }
