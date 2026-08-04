@@ -83,6 +83,52 @@ server). The earlier PDF→image stall is resolved.
 
 ## Changelog
 
+### 2026-08-04 - Nine new features, plus a round of real bug fixes
+
+**Fixes to shipped code (found while planning, all verified):**
+- **PDF text crashed on any non-Latin script.** `watermarkPdf` and `signPdf` threw
+  `WinAnsi cannot encode` on the rupee sign or Hindi, because PDF standard fonts are
+  CP1252 only. New [`pdfStamp.ts`](src/converters/pdfStamp.ts) keeps Latin as real
+  selectable text and rasterizes anything else with the device's own fonts, so no
+  font library is added to the bundle. Verified across all 4 watermark styles.
+- OCR and background removal booted a fresh engine per call. Both cached now:
+  repeat OCR went 565ms to 55ms, which matters most for batch.
+- Android save staged a copy in app cache that was never deleted. Removed after a
+  successful save, and leftovers purged at startup.
+- The selected action held an object closing over the file list, so reorder/batch
+  would have silently used stale files. Now held by key.
+- Per-action params leaked between files on a new drop. Cleared now.
+- `SignaturePad` had no `onPointerCancel`, which can strand a stroke on Android.
+
+**Sign & date now has a real preview** ([`PlacementPad.tsx`](src/PlacementPad.tsx)):
+drag the signature anywhere on the photo or PDF page, drag the corner to resize,
+pick the page. Placement is stored as FRACTIONS of the visible page so preview
+scale and devicePixelRatio cancel out. PDF pages use a bottom-left origin and can
+carry a /Rotate, so `placeOnPage` maps through a per-rotation transform: verified a
+stamp dropped at 10%/10% lands at 10%/10% for all four rotations.
+
+**Batch conversion** ([`batchRunner.ts`](src/converters/batchRunner.ts)): N files of
+one kind through one tool, zipped. Sequential to protect phone memory, partial
+failures listed in `_SKIPPED-FILES.txt` instead of losing the batch, duplicate names
+disambiguated, 400 MB output ceiling. Video is excluded (minutes per file).
+
+**Reorder + history**: the file list is reorderable by drag or arrows with per-file
+remove; verified merge follows the shown order even when the action was picked
+first. Recent results are kept **in memory only**, never written to disk, because
+persisting them would leave readable copies of converted documents on a shared PC.
+
+**New tools**: read a QR from a photo, view photo metadata (GPS first and
+highlighted), **lossless** metadata strip (verified 0 differing pixel bytes, with
+Orientation re-injected so portrait photos do not flip), type text anywhere on a
+PDF, fill real PDF form fields (controls discovered from the file via a new
+`inspect` hook; checkbox tick survives flattening), PDF to Excel, and a much better
+PDF to Word that infers headings, joins hard-wrapped paragraphs and falls back to
+OCR on scans. QR maker and unit converter live behind hash-routed tabs.
+
+**Cut deliberately**: share-to-phone (impossible without a server; the only viable
+path was a desktop-only LAN server that fails on guest wifi/VPN/firewall).
+
+
 ### 2026-07-02 — Windows desktop app (Electron)
 
 - **Goal:** a `.exe` for Windows users, alongside the PWA-install option (Tauri
