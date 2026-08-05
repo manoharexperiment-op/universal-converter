@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Capacitor } from '@capacitor/core';
 import App from './App';
 import { purgeExportCache } from './lib/download';
+import { watchForNewVersion } from './lib/appUpdate';
 import './index.css';
 
 // Sharing a converted file has to stage a copy in app cache, and the receiving
@@ -22,6 +23,10 @@ if (Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
   if (window.caches) {
     caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
   }
+} else {
+  // On the web, pick up a new deploy without waiting for the user to reload
+  // twice. Deferred while a conversion is running.
+  watchForNewVersion();
 }
 
 // Self-heal stale deploys: a lazy-loaded chunk (every converter dynamically

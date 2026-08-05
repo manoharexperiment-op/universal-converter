@@ -10,6 +10,7 @@ import { FileList } from './FileList';
 import { UnitConverter } from './tools/UnitConverter';
 import { QrMaker } from './tools/QrMaker';
 import { runBatch, MAX_BATCH_FILES } from './converters/batchRunner';
+import { setConverting } from './lib/appUpdate';
 import {
   isNativePlatform,
   isAndroidApp,
@@ -517,6 +518,7 @@ export default function App() {
     if (!selected) return;
     canceledRef.current = false;
     setBusy(true);
+    setConverting(true);
     setError('');
     setDone('');
     setStatus('');
@@ -548,6 +550,7 @@ export default function App() {
     } finally {
       onFFmpegStatus(null);
       setBusy(false);
+      setConverting(false);
       setProgress(0);
       setStatus('');
     }
