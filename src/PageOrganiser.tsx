@@ -1,11 +1,41 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PDFPageProxy } from 'pdfjs-dist';
 import type { PagePlan, PlanPage } from './converters/types';
 import { parsePageRanges, describePages } from './lib/pageRanges';
-import { putInsert, pruneInserts } from './lib/insertStore';
+import { getInsert, putInsert, pruneInserts } from './lib/insertStore';
 
 interface Thumb {
   key: string;
   url: string;
+}
+
+/** CSS width a thumbnail occupies. The canvas is rendered larger than this. */
+const THUMB_CSS_WIDTH = 150;
+
+/**
+ * A canvas sized in CSS pixels is upscaled by the display and looks soft: a
+ * phone at devicePixelRatio 3 stretches every rendered pixel across three real
+ * ones. Render at the device's own resolution instead. Capped at 3 because the
+ * data URLs are held in memory for every page at once.
+ */
+function pixelScale(): number {
+  return Math.min(3, Math.max(2, window.devicePixelRatio || 1));
+}
+
+/** Render one page to a JPEG data URL at `cssWidth` times the device scale. */
+async function renderPage(page: PDFPageProxy, cssWidth: number, quality: number): Promise<string> {
+  const base = page.getViewport({ scale: 1 });
+  const vp = page.getViewport({ scale: (cssWidth * pixelScale()) / base.width });
+  const cv = document.createElement('canvas');
+  cv.width = Math.ceil(vp.width);
+  cv.height = Math.ceil(vp.height);
+  const g = cv.getContext('2d')!;
+  g.fillStyle = '#fff';
+  g.fillRect(0, 0, cv.width, cv.height);
+  // 'print' avoids the rAF-driven display path, which stalls in a background tab.
+  await page.render({ canvasContext: g, viewport: vp, intent: 'print' }).promise;
+  // Text suffers most from JPEG ringing, so keep the quality high.
+  return cv.toDataURL('image/jpeg', quality);
 }
 
 /** Render page thumbnails once per source file and reuse them as pages move. */
@@ -16,20 +46,18 @@ async function renderThumbs(file: File, prefix: string, max = 200): Promise<Thum
   const count = Math.min(doc.numPages, max);
   for (let n = 1; n <= count; n++) {
     const page = await doc.getPage(n);
-    const base = page.getViewport({ scale: 1 });
-    const scale = 118 / base.width;
-    const vp = page.getViewport({ scale });
-    const cv = document.createElement('canvas');
-    cv.width = Math.ceil(vp.width);
-    cv.height = Math.ceil(vp.height);
-    const g = cv.getContext('2d')!;
-    g.fillStyle = '#fff';
-    g.fillRect(0, 0, cv.width, cv.height);
-    // 'print' avoids the rAF-driven display path, which stalls in a background tab.
-    await page.render({ canvasContext: g, viewport: vp, intent: 'print' }).promise;
-    out.push({ key: `${prefix}:${n - 1}`, url: cv.toDataURL('image/jpeg', 0.72) });
+    out.push({ key: `${prefix}:${n - 1}`, url: await renderPage(page, THUMB_CSS_WIDTH, 0.88) });
   }
   return out;
+}
+
+/** A single page at readable size, rendered on demand rather than kept for all. */
+async function renderLarge(file: File, index: number): Promise<string> {
+  const pdfjs = (await import('./lib/pdfjs')).default;
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const page = await doc.getPage(index + 1);
+  const wide = Math.min(820, Math.max(360, Math.round(window.innerWidth * 0.8)));
+  return renderPage(page, wide, 0.92);
 }
 
 async function imageThumb(file: File, prefix: string): Promise<Thumb[]> {
@@ -56,6 +84,8 @@ export function PageOrganiser({
   const [error, setError] = useState('');
   const [ranges, setRanges] = useState('');
   const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [preview, setPreview] = useState<{ url: string; page: number } | null>(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
   const insertAt = useRef<number>(0);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -146,6 +176,25 @@ export function PageOrganiser({
     }
   };
 
+  const openPreview = async (i: number) => {
+    const p = pages[i];
+    const src = p.src ? getInsert(p.src) : file;
+    if (!src) return;
+    setPreviewBusy(true);
+    try {
+      // Images have no PDF page to render; show the file itself.
+      if (p.src && !/\.pdf$/i.test(src.name) && src.type !== 'application/pdf') {
+        setPreview({ url: thumbs[`${p.src}:${p.index}`], page: i + 1 });
+      } else {
+        setPreview({ url: await renderLarge(src, p.index), page: i + 1 });
+      }
+    } catch {
+      setError('Could not open that page.');
+    } finally {
+      setPreviewBusy(false);
+    }
+  };
+
   const openInsert = (at: number) => {
     insertAt.current = at;
     fileInput.current?.click();
@@ -207,14 +256,20 @@ export function PageOrganiser({
             >
               +
             </button>
-            <div className="org-thumb">
+            <button
+              type="button"
+              className="org-thumb"
+              title="Tap to see this page larger"
+              onClick={() => void openPreview(i)}
+            >
               <img
                 src={thumbs[`${p.src}:${p.index}`]}
                 alt={`Page ${i + 1}`}
                 style={{ transform: `rotate(${p.rotate}deg)` }}
               />
               {p.src && <span className="org-badge">added</span>}
-            </div>
+              <span className="org-zoom">⤢</span>
+            </button>
             <div className="org-tools">
               <span className="org-num">{i + 1}</span>
               <button type="button" onClick={() => move(i, i - 1)} disabled={i === 0} title="Move left">‹</button>
@@ -231,8 +286,22 @@ export function PageOrganiser({
       </div>
 
       <p className="org-hint">
-        Drag a page to move it. {pages.length} page{pages.length === 1 ? '' : 's'} will be saved.
+        Tap a page to see it larger. Drag one to move it. {pages.length} page
+        {pages.length === 1 ? '' : 's'} will be saved.
       </p>
+
+      {previewBusy && <p className="org-hint">Opening the page…</p>}
+      {preview && (
+        <div className="org-lightbox" onClick={() => setPreview(null)} role="presentation">
+          <div className="org-lightbox-inner" onClick={(e) => e.stopPropagation()}>
+            <div className="org-lightbox-bar">
+              <span>Page {preview.page}</span>
+              <button type="button" onClick={() => setPreview(null)}>Close ✕</button>
+            </div>
+            <img src={preview.url} alt={`Page ${preview.page}, enlarged`} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
