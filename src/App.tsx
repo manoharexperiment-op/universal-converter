@@ -402,6 +402,7 @@ export default function App() {
   // Hash routing, not a router library: the Electron and Capacitor builds serve
   // from origins where real path routes would 404.
   const [mode, setMode] = useState<Mode>(() => modeFromHash());
+  const [showAllTools, setShowAllTools] = useState(false);
   const canceledRef = useRef(false);
 
   const reset = () => {
@@ -512,6 +513,7 @@ export default function App() {
   }, [selected, files]);
 
   const activeParams = inspected?.key === selected?.key ? inspected?.params : selected?.params;
+  const working = mode === 'files' && files.length > 0;
   const combineActions = useMemo(() => actions.filter((a) => a.group === 'combine'), [actions]);
   const eachActions = useMemo(() => actions.filter((a) => a.group === 'each'), [actions]);
 
@@ -608,7 +610,7 @@ export default function App() {
   const unsupported = files.length > 0 && actions.length === 0;
 
   return (
-    <div className="app">
+    <div className={`app ${working ? 'working' : ''}`}>
       <header className="header">
         <img className="logo" src="/logo.png" alt="MunnX" />
         <p className="brand-sub">Convertor</p>
@@ -831,9 +833,22 @@ export default function App() {
 
         </section>
 
+        {working && !showAllTools && (
+          <button className="tools-peek" onClick={() => setShowAllTools(true)}>
+            See everything it can do ▾
+          </button>
+        )}
+
+        {(!working || showAllTools) && (
         <section className="tools">
           <h3>Everything it can do</h3>
-          <p className="tools-sub">Drop a file above and only the tools that fit it are offered.</p>
+          {working ? (
+            <p className="tools-sub">
+              <button className="tools-hide" onClick={() => setShowAllTools(false)}>Hide this ▴</button>
+            </p>
+          ) : (
+            <p className="tools-sub">Drop a file above and only the tools that fit it are offered.</p>
+          )}
           {TOOL_GROUPS.map((g) => (
             <div className="tool-group" key={g.title}>
               <h4 className="tool-group-title">{g.title}</h4>
@@ -861,6 +876,7 @@ export default function App() {
             </div>
           ))}
         </section>
+        )}
       </main>
 
       <footer className="footer">
