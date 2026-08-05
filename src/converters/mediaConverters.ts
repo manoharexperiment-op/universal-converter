@@ -20,6 +20,11 @@ export function onFFmpegStatus(cb: ((status: string) => void) | null) {
 }
 
 /** Load the ~30 MB ffmpeg core once and reuse it for every conversion. */
+/** Shared loader, so other modules can drive ffmpeg without a second core. */
+export async function sharedFFmpeg() {
+  return getFFmpeg();
+}
+
 async function getFFmpeg() {
   if (!ffmpegPromise) {
     ffmpegPromise = (async () => {

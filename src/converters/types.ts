@@ -76,6 +76,7 @@ export type ParamControl =
   | { kind: 'range'; key: string; label: string; default: number; min: number; max: number; step?: number; unit?: string }
   | { kind: 'text'; key: string; label: string; default: string; placeholder?: string; password?: boolean }
   | { kind: 'signature'; key: string; label: string; default: string }
+  | { kind: 'image'; key: string; label: string; default: string; hint?: string }
   | {
       kind: 'placement';
       key: string;

@@ -1088,3 +1088,55 @@
     font-size: 0.95rem;
   }
 }
+
+/* ---------- Logo picker (video watermark) ---------- */
+.img-pick-btn {
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.img-pick-btn:hover {
+  border-color: var(--blue-bright);
+  color: var(--text);
+}
+.img-pick-has {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.img-pick-has img {
+  height: 44px;
+  max-width: 150px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: repeating-conic-gradient(#2a3654 0% 25%, #1b2440 0% 50%) 50% / 12px 12px;
+  padding: 3px;
+}
+.img-pick-has button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.img-pick-has button:hover {
+  border-color: var(--blue-bright);
+  color: var(--text);
+}
+.img-pick-hint,
+.img-pick-err {
+  margin: 7px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+.img-pick-hint { color: var(--text-3); }
+.img-pick-err  { color: var(--orange-2); }

@@ -97,6 +97,7 @@ const TOOL_GROUPS: { title: string; tools: Tool[] }[] = [
     title: 'Video, audio & documents',
     tools: [
       { icon: '🎬', title: 'Video', desc: 'MP4 · WebM · GIF', tint: 'pink' },
+      { icon: '🛡️', title: 'Video watermark', desc: 'A moving mark that resists removal', tint: 'red' },
       { icon: '🎵', title: 'Audio', desc: 'MP3 · WAV · trim', tint: 'purple' },
       { icon: '📑', title: 'Docs to PDF', desc: 'Word · Markdown · text', tint: 'blue' },
       { icon: '📋', title: 'Excel ↔ CSV', desc: 'Spreadsheets', tint: 'green' },
@@ -219,6 +220,64 @@ function ResultPanel({ view }: { view: ResultView }) {
   );
 }
 
+/** Pick a logo image and keep it as a data URL, so nothing leaves the device. */
+function ImagePicker({
+  value,
+  hint,
+  onChange,
+}: {
+  value: string;
+  hint?: string;
+  onChange: (v: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState('');
+
+  const pick = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('That is not an image file.');
+      return;
+    }
+    // Large logos bloat the data URL for no visual gain; the stamp is redrawn
+    // at frame resolution anyway.
+    if (file.size > 8 * 1024 * 1024) {
+      setError('That image is over 8 MB. Try a smaller one.');
+      return;
+    }
+    setError('');
+    const r = new FileReader();
+    r.onload = () => onChange(String(r.result || ''));
+    r.onerror = () => setError('Could not read that image.');
+    r.readAsDataURL(file);
+  };
+
+  return (
+    <div className="img-pick">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => pick(e.target.files?.[0])}
+      />
+      {value ? (
+        <div className="img-pick-has">
+          <img src={value} alt="Chosen logo" />
+          <button type="button" onClick={() => inputRef.current?.click()}>Change</button>
+          <button type="button" onClick={() => { onChange(''); setError(''); }}>Remove</button>
+        </div>
+      ) : (
+        <button type="button" className="img-pick-btn" onClick={() => inputRef.current?.click()}>
+          🖼️ Choose a logo
+        </button>
+      )}
+      {error && <p className="img-pick-err">{error}</p>}
+      {!error && hint && <p className="img-pick-hint">{hint}</p>}
+    </div>
+  );
+}
+
 /** Controls rendered under a selected action. */
 function ActionParams({
   params,
@@ -240,6 +299,14 @@ function ActionParams({
             <div className="param-row param-full" key={c.key}>
               <span className="param-label">{c.label}</span>
               <SignaturePad value={String(v)} onChange={(val) => onChange(c.key, val)} />
+            </div>
+          );
+        }
+        if (c.kind === 'image') {
+          return (
+            <div className="param-row param-full" key={c.key}>
+              <span className="param-label">{c.label}</span>
+              <ImagePicker value={String(v)} hint={c.hint} onChange={(val) => onChange(c.key, val)} />
             </div>
           );
         }

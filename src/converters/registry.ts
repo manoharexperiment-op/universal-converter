@@ -10,6 +10,7 @@ import * as exif from './exifConverters';
 import * as office from './pdfOffice';
 import * as ptext from './pdfTextTools';
 import { addTextControls } from './pdfTextTools';
+import { watermarkVideo, VIDEO_WATERMARK_PARAMS } from './videoWatermark';
 
 /* ---- reusable parameter controls ---- */
 const BITRATE_PARAM: ParamControl = {
@@ -224,6 +225,7 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'mp4', label: 'MP4', note: 'In-browser video encoding is slow (~5–10× real time)', params: [MAXWIDTH_PARAM], run: (f, p, pv) => media.videoToMp4(f, p, pv) },
     { target: 'webm', label: 'WebM', note: 'In-browser video encoding is slow (~5–10× real time)', params: [MAXWIDTH_PARAM], run: (f, p, pv) => media.videoToWebm(f, p, pv) },
     { target: 'mp4', label: 'Compress', note: 'Re-encodes smaller (slow in-browser)', params: [VIDEO_LEVEL_PARAM], run: (f, p, pv) => media.compressVideo(f, p, pv) },
+    { target: 'mp4', batch: 'never', label: 'Watermark', note: 'Text or logo that moves through the clip, so it cannot be averaged out', params: VIDEO_WATERMARK_PARAMS, run: (f, p, pv) => watermarkVideo(f, p, pv) },
   ],
   audio: [
     { target: 'mp3', label: 'MP3', params: [BITRATE_PARAM], run: (f, p, pv) => media.toMp3(f, p, pv) },
