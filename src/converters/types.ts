@@ -51,7 +51,33 @@ export interface Placement {
   page: number;
 }
 
-export type ParamValue = string | number | Placement;
+/**
+ * One page of the output. `src` is '' for the document being edited, or the id
+ * of a file the user inserted. `index` is the 0-based page in that source, so a
+ * page can appear twice (duplicated) or in any order.
+ */
+export interface PlanPage {
+  src: string;
+  index: number;
+  /** Extra clockwise rotation in degrees, on top of whatever the page carries. */
+  rotate: number;
+}
+
+/** The whole edit as an ordered list. Deleting a page just drops it from here. */
+export interface PagePlan {
+  pages: PlanPage[];
+}
+
+export function isPagePlan(v: unknown): v is PagePlan {
+  return !!v && typeof v === 'object' && Array.isArray((v as PagePlan).pages);
+}
+
+/** Narrow a param value to a PagePlan, falling back to an empty one. */
+export function asPagePlan(v: ParamValue | undefined): PagePlan {
+  return isPagePlan(v) ? v : { pages: [] };
+}
+
+export type ParamValue = string | number | Placement | PagePlan;
 
 /** Values collected from an action's parameter controls, keyed by control key. */
 export type ParamValues = Record<string, ParamValue>;
@@ -77,6 +103,7 @@ export type ParamControl =
   | { kind: 'text'; key: string; label: string; default: string; placeholder?: string; password?: boolean }
   | { kind: 'signature'; key: string; label: string; default: string }
   | { kind: 'image'; key: string; label: string; default: string; hint?: string }
+  | { kind: 'pages'; key: string; label: string; default: PagePlan }
   | {
       kind: 'placement';
       key: string;

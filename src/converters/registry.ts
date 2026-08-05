@@ -11,6 +11,12 @@ import * as office from './pdfOffice';
 import * as ptext from './pdfTextTools';
 import { addTextControls } from './pdfTextTools';
 import { watermarkVideo, VIDEO_WATERMARK_PARAMS } from './videoWatermark';
+import { organisePdf } from './pdfPages';
+
+/** The organiser builds its own plan from the file, so the default is empty. */
+const ORGANISE_PARAMS: ParamControl[] = [
+  { kind: 'pages', key: 'plan', label: 'Pages', default: { pages: [] } },
+];
 
 /* ---- reusable parameter controls ---- */
 const BITRATE_PARAM: ParamControl = {
@@ -203,6 +209,7 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'docx', label: 'Word', note: 'Rebuilds headings and paragraphs; falls back to OCR for scans', run: (f, p) => office.pdfToDocxRich(f, p) },
     { target: 'xlsx', label: 'Excel', note: 'Ruled tables become rows and columns; otherwise one row per line', run: (f, p) => office.pdfToXlsx(f, p) },
     { target: 'pdf', label: 'Rotate 90°', note: 'Rotates every page 90° clockwise', run: (f) => pdf.pdfRotate(f, 90) },
+    { target: 'pdf', batch: 'never', label: 'Organise pages', note: 'Delete, reorder or rotate single pages, and insert other files anywhere', params: ORGANISE_PARAMS, run: (f, p, pv) => organisePdf(f, p, pv) },
     { target: 'zip', batch: 'never', label: 'Split pages', note: 'Each page as its own PDF (zipped)', run: (f, p) => pdf.pdfSplit(f, p) },
     { target: 'pdf', label: 'Compress', note: 'Best for scanned/image PDFs — flattens pages to images, so text is no longer selectable', params: [LEVEL_PARAM], run: (f, p, pv) => pdf.compressPdf(f, p, pv) },
     { target: 'pdf', label: 'Watermark', note: 'Stamp your text on every page', params: WATERMARK_PARAMS, run: (f, p, pv) => pdf.watermarkPdf(f, p, pv) },

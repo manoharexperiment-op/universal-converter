@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { batchableFor, getSourceType, MERGE_REGISTRY, REGISTRY } from './converters/registry';
 import type { ConversionResult, InspectFn, ParamControl, ParamValue, ParamValues, ProgressFn, ResultView } from './converters/types';
-import { asPlacement, defaultsOf } from './converters/types';
+import { asPlacement, asPagePlan, defaultsOf } from './converters/types';
 import { onFFmpegStatus, terminateFFmpeg } from './converters/mediaConverters';
 import { SignaturePad } from './SignaturePad';
 import { PlacementPad } from './PlacementPad';
+import { PageOrganiser } from './PageOrganiser';
 import { FileList } from './FileList';
 import { UnitConverter } from './tools/UnitConverter';
 import { QrMaker } from './tools/QrMaker';
@@ -72,7 +73,7 @@ const TOOL_GROUPS: { title: string; tools: Tool[] }[] = [
       { icon: '📊', title: 'PDF to Excel', desc: 'Tables into a sheet', tint: 'green' },
       { icon: '🖨️', title: 'PDF to image', desc: 'Every page as a picture', tint: 'orange' },
       { icon: '📄', title: 'Images to PDF', desc: 'Combine into one file', tint: 'orange' },
-      { icon: '✂️', title: 'Organise pages', desc: 'Split, rotate or merge', tint: 'red' },
+      { icon: '✂️', title: 'Organise pages', desc: 'Delete, reorder, rotate or insert pages', tint: 'red' },
       { icon: '🗜️', title: 'Shrink PDF', desc: 'Best for scans', tint: 'teal' },
     ],
   },
@@ -300,6 +301,14 @@ function ActionParams({
             <div className="param-row param-full" key={c.key}>
               <span className="param-label">{c.label}</span>
               <SignaturePad value={String(v)} onChange={(val) => onChange(c.key, val)} />
+            </div>
+          );
+        }
+        if (c.kind === 'pages') {
+          if (!file) return null;
+          return (
+            <div className="param-row param-full" key={c.key}>
+              <PageOrganiser file={file} value={asPagePlan(v)} onChange={(pl) => onChange(c.key, pl)} />
             </div>
           );
         }
