@@ -47,10 +47,19 @@ export default defineConfig(({ mode }) => {
                 globPatterns: ['**/*.{js,mjs,css,html,svg,ico,woff2,wasm}'],
                 // Keep big engines OUT of the precache (they'd blow the size limit and
                 // fail `vite build`). They're runtime-cached on first use instead.
-                globIgnores: ['**/tesseract/**', '**/ort-wasm-simd-threaded*.wasm', '**/ffmpeg/**'],
+                globIgnores: ['**/tesseract/**', '**/ort-wasm-simd-threaded*.wasm', '**/ffmpeg/**', '**/fonts/**'],
                 maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
                 navigateFallback: '/index.html',
                 runtimeCaching: [
+                  {
+                    // Subtitle fonts: only fetched when someone burns subtitles.
+                    urlPattern: ({ url }) => url.pathname.startsWith('/fonts/'),
+                    handler: 'CacheFirst',
+                    options: {
+                      cacheName: 'subtitle-fonts',
+                      expiration: { maxEntries: 12, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                    },
+                  },
                   {
                     // Self-hosted Tesseract worker/core/traineddata → cache on first OCR.
                     urlPattern: ({ url }) => url.pathname.startsWith('/tesseract/'),
