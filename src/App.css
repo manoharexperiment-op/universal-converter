@@ -1452,3 +1452,131 @@
   color: var(--text-2);
   font-size: 0.78rem;
 }
+
+/* ---------- Batch queue ---------- */
+.bq {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 12px 14px;
+}
+.bq-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.bq-counts { display: flex; gap: 10px; font-size: 0.76rem; }
+.bq-ok { color: #4ade80; }
+.bq-bad { color: #f87171; }
+.bq-overall {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin: 9px 0 11px;
+}
+.bq-overall > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue), var(--blue-bright));
+  transition: width 0.25s ease;
+}
+.bq-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.bq-controls button {
+  padding: 7px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.bq-controls button:hover { border-color: var(--blue-bright); color: var(--text); }
+.bq-controls .bq-stop:hover { border-color: #f87171; color: #f87171; }
+.bq-controls .bq-save {
+  background: linear-gradient(135deg, var(--orange), var(--orange-2));
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+}
+.bq-list { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.bq-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  font-size: 0.8rem;
+}
+.bq-row.bq-running { border-color: var(--blue-bright); }
+.bq-row.bq-failed { border-color: rgba(248, 113, 113, 0.5); }
+.bq-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.bq-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.bq-meta { font-size: 0.7rem; color: var(--text-3); }
+.bq-side { display: flex; align-items: center; gap: 6px; }
+.bq-status { font-size: 0.7rem; color: var(--text-3); }
+.bq-status-done { color: #4ade80; }
+.bq-status-failed { color: #f87171; }
+.bq-status-running { color: var(--blue-bright); }
+.bq-side button {
+  width: 24px; height: 24px;
+  display: grid; place-items: center;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-2);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+}
+.bq-side button:hover { border-color: var(--blue-bright); color: var(--text); }
+.bq-bar {
+  grid-column: 1 / -1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.bq-bar > span {
+  display: block; height: 100%;
+  background: var(--blue-bright);
+  transition: width 0.2s ease;
+}
+.bq-error {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  color: var(--orange-2);
+  line-height: 1.4;
+}
+.bq-detail-toggle {
+  margin-left: 8px;
+  border: none; background: none;
+  color: var(--text-3);
+  font: inherit; font-size: 0.7rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+.bq-detail {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  max-height: 130px;
+  overflow: auto;
+  font-size: 0.66rem;
+  color: var(--text-3);
+  white-space: pre-wrap;
+}

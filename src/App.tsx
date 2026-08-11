@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { batchableFor, getSourceType, MERGE_REGISTRY, REGISTRY } from './converters/registry';
-import type { ConversionResult, InspectFn, ParamControl, ParamValue, ParamValues, ProgressFn, ResultView } from './converters/types';
+import type { ConversionResult, InspectFn, ParamControl, ParamValue, ParamValues, ProgressFn, ResultView, TargetOption } from './converters/types';
 import { asPlacement, asPagePlan, defaultsOf } from './converters/types';
 import { onFFmpegStatus, terminateFFmpeg } from './converters/mediaConverters';
 import { SignaturePad } from './SignaturePad';
@@ -11,6 +11,9 @@ import { FileList } from './FileList';
 import { UnitConverter } from './tools/UnitConverter';
 import { QrMaker } from './tools/QrMaker';
 import { runBatch, MAX_BATCH_FILES } from './converters/batchRunner';
+import { BatchQueue, estimateBatchMinutes } from './converters/batchQueue';
+import type { QueueItem } from './converters/batchQueue';
+import { BatchQueuePanel } from './BatchQueue';
 import { setConverting } from './lib/appUpdate';
 import {
   isNativePlatform,
@@ -131,6 +134,8 @@ interface Action {
   inspect?: InspectFn;
   /** Heading this tool sits under, for file types with many tools. */
   section?: string;
+  /** Present on per-file batch actions, so the queue can drive them directly. */
+  option?: TargetOption;
   run: (onProgress?: ProgressFn, params?: ParamValues) => Promise<ConversionResult>;
 }
 
@@ -456,6 +461,7 @@ export default function App() {
   const [inspected, setInspected] = useState<{ key: string; params: ParamControl[]; message?: string } | null>(null);
   const [inspecting, setInspecting] = useState(false);
   const [view, setView] = useState<ResultView | null>(null);
+  const [queue, setQueue] = useState<BatchQueue | null>(null);
   // Hash routing, not a router library: the Electron and Capacitor builds serve
   // from origins where real path routes would 404.
   const [mode, setMode] = useState<Mode>(() => modeFromHash());
@@ -471,6 +477,7 @@ export default function App() {
     setDone('');
     setProgress(0);
     setPending(null);
+    setQueue(null);
   };
 
   const onDrop = useCallback((accepted: File[]) => {
@@ -482,6 +489,7 @@ export default function App() {
           : '',
       );
       setSelectedKey(null);
+      setQueue(null);
       // Params are keyed by action, and actions are keyed by target+label, so a
       // new file would otherwise inherit the previous file's settings (a page
       // number past the end of a shorter PDF, for instance).
@@ -529,6 +537,7 @@ export default function App() {
         media,
         group: 'each' as const,
         batch: true,
+        option: opt,
         run: (p?: ProgressFn, pv?: ParamValues) => runBatch(files, opt, p, pv),
       }));
 
@@ -612,6 +621,28 @@ export default function App() {
     setPending(null);
     setView(null);
     if (selected.media) onFFmpegStatus(setStatus);
+
+    // Several files through one tool: show the work rather than hiding it in a
+    // single bar. A stuck file can then be abandoned without losing the rest.
+    if (selected.option && files.length > 1) {
+      const q = new BatchQueue(selected.option, paramValues, async () => {
+        canceledRef.current = true;
+        await terminateFFmpeg();
+      });
+      q.add(files);
+      setQueue(q);
+      try {
+        await q.run();
+      } finally {
+        onFFmpegStatus(null);
+        setBusy(false);
+        setConverting(false);
+        setProgress(0);
+        setStatus('');
+      }
+      return;
+    }
+
     try {
       const result = await selected.run((f) => setProgress(f), paramValues);
       setView(result.view ?? null);
@@ -820,7 +851,15 @@ export default function App() {
               </>
             )}
             {selected?.note && <p className="note">ⓘ {selected.note}</p>}
-            {selected?.batch && <p className="note">📦 Each file is converted separately and you get one zip back.</p>}
+            {selected?.batch && (
+              <p className="note">
+                📦 Each file is done separately, and you can save them one by one or all together.
+                {(() => {
+                  const mins = estimateBatchMinutes(files, getSourceType(files[0]?.name ?? '') === 'video');
+                  return mins ? ` Video is slow in a browser, so expect roughly ${mins} minute${mins === 1 ? '' : 's'} for this set.` : '';
+                })()}
+              </p>
+            )}
             {inspecting && <p className="note">Reading the file…</p>}
             {inspected?.key === selected?.key && inspected?.message && (
               <p className="note">ⓘ {inspected.message}</p>
@@ -871,6 +910,23 @@ export default function App() {
         {notice && <div className="message notice">{notice}</div>}
         {error && <div className="message error">{error}</div>}
         {done && <div className="message success">{done}</div>}
+        {queue && (
+          <BatchQueuePanel
+            queue={queue}
+            onSaveOne={(it: QueueItem) => {
+              if (!it.result) return;
+              if (isNativePlatform()) setPending({ blob: it.result.blob, filename: it.result.filename });
+              else downloadBlob(it.result.blob, it.result.filename);
+            }}
+            onSaveAll={() => {
+              void queue.zipResults().then((z) => {
+                if (!z) return;
+                if (isNativePlatform()) setPending({ blob: z.blob, filename: z.filename });
+                else downloadBlob(z.blob, z.filename);
+              });
+            }}
+          />
+        )}
         {view && <ResultPanel view={view} />}
 
         {pending && isAndroidApp() && (
