@@ -275,10 +275,15 @@ export async function runJob(
 
     if (overlays.length || audioReplaceIdx !== null) {
       const parts: string[] = [];
+      // Square brackets denote a filter output. A raw stream like 0:v must be
+      // mapped without them, or ffmpeg rejects the whole command, which is what
+      // happened when replacing audio on a clip that needed no video filters.
       let vLabel = '0:v';
+      let vIsFilterOutput = false;
       if (vChain.length) {
         parts.push(`[0:v]${vChain.join(',')}[vbase]`);
         vLabel = 'vbase';
+        vIsFilterOutput = true;
       }
       overlays.forEach(({ idx, op }, n) => {
         const scalePct = op.kind === 'watermark' ? op.scalePercent : 100;
@@ -294,8 +299,8 @@ export async function runJob(
         const out = n === overlays.length - 1 ? 'vout' : `vo${n}`;
         parts.push(`[${vLabel}][s${n}]overlay=${x}:${y}${win}[${out}]`);
         vLabel = out;
+        vIsFilterOutput = true;
       });
-      if (!overlays.length) vLabel = vChain.length ? 'vbase' : '0:v';
 
       let aLabel: string | null = null;
       if (audioReplaceIdx !== null) {
@@ -308,7 +313,7 @@ export async function runJob(
       }
 
       args.push('-filter_complex', parts.join(';'));
-      args.push('-map', `[${vLabel}]`);
+      args.push('-map', vIsFilterOutput ? `[${vLabel}]` : vLabel);
       if (aLabel) args.push('-map', `[${aLabel}]`);
       else if (wantsAudio) args.push('-map', '0:a?');
     } else {

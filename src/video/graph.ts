@@ -58,7 +58,32 @@ function escapeFilterValue(v: string): string {
   return v.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'").replace(/,/g, '\\,');
 }
 
+/**
+ * How long the result will actually run.
+ *
+ * Trimming and speed both change it, and a fade-out has to be placed against
+ * the final length rather than the source's. Positioning it from the original
+ * duration puts the fade past the end of a trimmed clip, where it silently does
+ * nothing at all.
+ */
+export function effectiveDuration(ops: VideoOp[], sourceDuration: number): number {
+  let d = sourceDuration;
+  for (const op of ops) {
+    if (op.kind === 'trim') {
+      const start = Math.max(0, op.start);
+      const end = op.end === undefined ? d : Math.min(op.end, d);
+      d = Math.max(0, end - start);
+    } else if (op.kind === 'speed' && op.factor > 0) {
+      d = d / op.factor;
+    }
+  }
+  return d;
+}
+
 export function buildGraph(ops: VideoOp[], info: VideoInfo, output: VideoOutput): BuiltGraph {
+  // Fades are placed against the finished length, so this is needed up front
+  // rather than as the operations are walked.
+  const finalDuration = effectiveDuration(ops, info.durationSeconds);
   const g: BuiltGraph = { videoChain: [], audioChain: [], extraInputs: [], dropAudio: false, notes: [] };
 
   // Track the frame size as filters change it, so later operations that depend
@@ -196,8 +221,11 @@ export function buildGraph(ops: VideoOp[], info: VideoInfo, output: VideoOutput)
       case 'audioFade': {
         if (op.inSeconds && op.inSeconds > 0) g.audioChain.push(`afade=t=in:st=0:d=${op.inSeconds}`);
         if (op.outSeconds && op.outSeconds > 0) {
-          const at = Math.max(0, info.durationSeconds - op.outSeconds);
-          g.audioChain.push(`afade=t=out:st=${at.toFixed(3)}:d=${op.outSeconds}`);
+          // Against the finished length, not the source's: a 6s clip trimmed to
+          // 3s would otherwise put the fade at 5s, past the end, doing nothing.
+          const fade = Math.min(op.outSeconds, finalDuration);
+          const at = Math.max(0, finalDuration - fade);
+          g.audioChain.push(`afade=t=out:st=${at.toFixed(3)}:d=${fade.toFixed(3)}`);
         }
         break;
       }
