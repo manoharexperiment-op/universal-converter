@@ -77,10 +77,15 @@ export function asPagePlan(v: ParamValue | undefined): PagePlan {
   return isPagePlan(v) ? v : { pages: [] };
 }
 
-export type ParamValue = string | number | Placement | PagePlan;
+export type ParamValue = string | number | Placement | PagePlan | File | null;
 
 /** Values collected from an action's parameter controls, keyed by control key. */
 export type ParamValues = Record<string, ParamValue>;
+
+/** Narrow a param value to a File, or null when nothing was chosen. */
+export function asFile(v: ParamValue | undefined): File | null {
+  return v instanceof File ? v : null;
+}
 
 /** Narrow a param value to a Placement, falling back to a sensible default. */
 export function asPlacement(v: ParamValue | undefined): Placement {
@@ -103,6 +108,8 @@ export type ParamControl =
   | { kind: 'text'; key: string; label: string; default: string; placeholder?: string; password?: boolean }
   | { kind: 'signature'; key: string; label: string; default: string }
   | { kind: 'image'; key: string; label: string; default: string; hint?: string }
+  /** Pick a whole file (audio track, subtitle file). Value is the File itself. */
+  | { kind: 'file'; key: string; label: string; default: null; accept: string; hint?: string }
   | { kind: 'pages'; key: string; label: string; default: PagePlan }
   | {
       kind: 'placement';
@@ -124,6 +131,11 @@ export interface TargetOption {
   label: string;
   /** Optional caveat shown under the option (fidelity / trade-off notes). */
   note?: string;
+  /**
+   * Heading this tool sits under. Video carries enough tools that one flat list
+   * reads as a wall, so they are grouped rather than listed end to end.
+   */
+  section?: string;
   /** Optional parameter controls shown when this option is selected. */
   params?: ParamControl[];
   /**

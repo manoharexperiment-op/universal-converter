@@ -12,6 +12,7 @@ import * as ptext from './pdfTextTools';
 import { addTextControls } from './pdfTextTools';
 import { watermarkVideo, VIDEO_WATERMARK_PARAMS } from './videoWatermark';
 import { organisePdf } from './pdfPages';
+import { VIDEO_TOOLS } from './videoTools';
 
 /** The organiser builds its own plan from the file, so the default is empty. */
 const ORGANISE_PARAMS: ParamControl[] = [
@@ -226,13 +227,11 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'html', label: 'HTML', run: (f) => doc.docxToHtml(f) },
   ],
   video: [
-    { target: 'mp3', label: 'MP3 (audio)', note: 'Extracts the audio track as MP3', params: [BITRATE_PARAM], run: (f, p, pv) => media.toMp3(f, p, pv) },
-    { target: 'wav', label: 'WAV (audio)', note: 'Extracts the audio track, uncompressed', run: (f, p) => media.toWav(f, p) },
-    { target: 'gif', label: 'GIF', note: 'Best for short clips — keep it under ~15s', params: GIF_PARAMS, run: (f, p, pv) => media.videoToGif(f, p, pv) },
-    { target: 'mp4', label: 'MP4', note: 'In-browser video encoding is slow (~5–10× real time)', params: [MAXWIDTH_PARAM], run: (f, p, pv) => media.videoToMp4(f, p, pv) },
-    { target: 'webm', label: 'WebM', note: 'In-browser video encoding is slow (~5–10× real time)', params: [MAXWIDTH_PARAM], run: (f, p, pv) => media.videoToWebm(f, p, pv) },
-    { target: 'mp4', label: 'Compress', note: 'Re-encodes smaller (slow in-browser)', params: [VIDEO_LEVEL_PARAM], run: (f, p, pv) => media.compressVideo(f, p, pv) },
-    { target: 'mp4', batch: 'never', label: 'Watermark', note: 'Text or logo that moves through the clip, so it cannot be averaged out', params: VIDEO_WATERMARK_PARAMS, run: (f, p, pv) => watermarkVideo(f, p, pv) },
+    ...VIDEO_TOOLS,
+    { target: 'gif', section: 'Convert', batch: 'never', label: 'GIF', note: 'Best under ~15 seconds', params: GIF_PARAMS, run: (f, p, pv) => media.videoToGif(f, p, pv) },
+    { target: 'mp3', section: 'Sound', label: 'Extract MP3', note: 'Save the sound as an MP3', params: [BITRATE_PARAM], run: (f, p, pv) => media.toMp3(f, p, pv) },
+    { target: 'wav', section: 'Sound', label: 'Extract WAV', note: 'Save the sound uncompressed', run: (f, p) => media.toWav(f, p) },
+    { target: 'mp4', section: 'Finish', batch: 'never', label: 'Watermark', note: 'A moving mark that resists removal', params: VIDEO_WATERMARK_PARAMS, run: (f, p, pv) => watermarkVideo(f, p, pv) },
   ],
   audio: [
     { target: 'mp3', label: 'MP3', params: [BITRATE_PARAM], run: (f, p, pv) => media.toMp3(f, p, pv) },
@@ -254,13 +253,24 @@ export const MERGE_REGISTRY: Record<string, MergeOption[]> = {
   pdf: [{ target: 'pdf', label: 'Merge into one PDF', note: 'Joins every PDF, in the order shown above', run: mergePdfs }],
   image: [{ target: 'pdf', label: 'Combine into one PDF', note: 'One image per page, in the order shown above', run: imagesToPdf }],
   audio: [{ target: 'mp3', label: 'Join into one MP3', note: 'Plays end to end, in the order shown above', media: true, run: mergeAudio }],
+  video: [{
+    target: 'mp4', label: 'Join into one video', media: true,
+    note: 'Plays end to end, in the order shown above. Different sizes and frame rates are matched up first.',
+    run: async (files, onProgress) => {
+      const { mergeVideos } = await import('../video/merge');
+      const { getVideoInfo } = await import('../video/engine');
+      const sources = [];
+      for (const file of files) sources.push({ file, info: await getVideoInfo(file) });
+      return mergeVideos(sources, { output: { container: 'mp4', crf: 26, audioBitrate: '160k' } }, onProgress);
+    },
+  }],
 };
 
 /**
  * Tools that are pointless or punishing to run across many files at once.
  * Video encoding takes minutes per file, so a batch of ten would look frozen.
  */
-const NO_BATCH_TYPES = new Set(['video']);
+const NO_BATCH_TYPES = new Set<string>();
 
 /** The per-file tools offered for a batch of `type` files. */
 export function batchableFor(type: string): TargetOption[] {

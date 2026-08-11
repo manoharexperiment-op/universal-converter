@@ -129,6 +129,8 @@ interface Action {
   batch?: boolean;
   /** Builds controls by reading the file (PDF form fields). */
   inspect?: InspectFn;
+  /** Heading this tool sits under, for file types with many tools. */
+  section?: string;
   run: (onProgress?: ProgressFn, params?: ParamValues) => Promise<ConversionResult>;
 }
 
@@ -222,6 +224,47 @@ function ResultPanel({ view }: { view: ResultView }) {
   );
 }
 
+/** Pick a companion file (an audio track, a subtitle file) for a tool to use. */
+function FilePicker({
+  value,
+  accept,
+  hint,
+  onChange,
+}: {
+  value: File | null;
+  accept: string;
+  hint?: string;
+  onChange: (f: File | null) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="img-pick">
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        hidden
+        onChange={(e) => {
+          onChange(e.target.files?.[0] ?? null);
+          e.target.value = '';
+        }}
+      />
+      {value ? (
+        <div className="img-pick-has">
+          <span className="file-chip">📎 {value.name} · {formatSize(value.size)}</span>
+          <button type="button" onClick={() => inputRef.current?.click()}>Change</button>
+          <button type="button" onClick={() => onChange(null)}>Remove</button>
+        </div>
+      ) : (
+        <button type="button" className="img-pick-btn" onClick={() => inputRef.current?.click()}>
+          📎 Choose a file
+        </button>
+      )}
+      {hint && <p className="img-pick-hint">{hint}</p>}
+    </div>
+  );
+}
+
 /** Pick a logo image and keep it as a data URL, so nothing leaves the device. */
 function ImagePicker({
   value,
@@ -309,6 +352,20 @@ function ActionParams({
           return (
             <div className="param-row param-full" key={c.key}>
               <PageOrganiser file={file} value={asPagePlan(v)} onChange={(pl) => onChange(c.key, pl)} />
+            </div>
+          );
+        }
+        if (c.kind === 'file') {
+          const chosen = v instanceof File ? v : null;
+          return (
+            <div className="param-row param-full" key={c.key}>
+              <span className="param-label">{c.label}</span>
+              <FilePicker
+                value={chosen}
+                accept={c.accept}
+                hint={c.hint}
+                onChange={(f) => onChange(c.key, f)}
+              />
             </div>
           );
         }
@@ -451,6 +508,7 @@ export default function App() {
         icon: ICONS[opt.target] ?? '📁',
         params: opt.params,
         inspect: opt.inspect,
+        section: opt.section,
         media,
         run: (p?: ProgressFn, pv?: ParamValues) => opt.run(file, p, pv),
       }));
@@ -514,6 +572,23 @@ export default function App() {
 
   const activeParams = inspected?.key === selected?.key ? inspected?.params : selected?.params;
   const working = mode === 'files' && files.length > 0;
+  // Video carries around twenty tools; one flat row of buttons is the wall the
+  // tool directory used to be. Group them when the type declares sections.
+  const sections = useMemo(() => {
+    if (files.length > 1 || !actions.some((a) => a.section)) return [] as [string, Action[]][];
+    const order: string[] = [];
+    const bucket = new Map<string, Action[]>();
+    for (const a of actions) {
+      const name = a.section ?? 'More';
+      if (!bucket.has(name)) {
+        bucket.set(name, []);
+        order.push(name);
+      }
+      bucket.get(name)!.push(a);
+    }
+    return order.map((n) => [n, bucket.get(n)!] as [string, Action[]]);
+  }, [actions, files.length]);
+
   const combineActions = useMemo(() => actions.filter((a) => a.group === 'combine'), [actions]);
   const eachActions = useMemo(() => actions.filter((a) => a.group === 'each'), [actions]);
 
@@ -716,6 +791,21 @@ export default function App() {
                     </div>
                   </>
                 )}
+              </>
+            ) : sections.length > 0 ? (
+              <>
+                {sections.map(([name, list], si) => (
+                  <div key={name}>
+                    <h3 className={si ? 'group-gap' : undefined}>{name}</h3>
+                    <div className="format-grid">
+                      {list.map((a) => (
+                        <button key={a.key} className={`format-btn ${selected?.key === a.key ? 'selected' : ''}`} onClick={() => setSelectedKey(a.key)} title={a.note}>
+                          {a.icon} {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </>
             ) : (
               <>
