@@ -5,6 +5,7 @@ import { VideoError, describeFailure } from './types';
 import { outputArgs } from './graph';
 import { probe } from './probe';
 import { MAX_VIDEO_BYTES } from './engine';
+import { blobBytes } from '../lib/bytes';
 
 /**
  * Joining videos.
@@ -171,7 +172,7 @@ export async function mergeVideos(
 
     const mime = settings.output.container === 'webm' ? 'video/webm' : 'video/mp4';
     return {
-      blob: new Blob([data], { type: mime }),
+      blob: new Blob([blobBytes(data)], { type: mime }),
       filename: `merged_video.${settings.output.container}`,
       note:
         `Joined ${sources.length} videos at ${target.width}x${target.height}, ${Math.round(check.durationSeconds)}s total. ` +

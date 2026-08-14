@@ -45,10 +45,12 @@ export interface SubtitleStyle {
   outline: boolean;
   background: boolean;
   position: 'top' | 'center' | 'bottom';
+  /** Horizontal placement. Defaults to centre when unset. */
+  align?: 'left' | 'center' | 'right';
   marginPercent: number;
 }
 
-export type VideoContainer = 'mp4' | 'webm' | 'mov' | 'mkv' | 'avi' | 'gif';
+export type VideoContainer = 'mp4' | 'm4v' | 'webm' | 'mov' | 'mkv' | 'avi' | 'gif';
 
 export interface VideoOutput {
   container: VideoContainer;

@@ -1,6 +1,7 @@
 import type { ConversionResult, ProgressFn } from './types';
 import { convertImageFormat } from './imageConverters';
 import { preloadFFmpeg } from './mediaConverters';
+import { blobBytes } from '../lib/bytes';
 
 /** Merge several PDFs into one, in the order given. */
 export async function mergePdfs(files: File[], onProgress?: ProgressFn): Promise<ConversionResult> {
@@ -15,7 +16,7 @@ export async function mergePdfs(files: File[], onProgress?: ProgressFn): Promise
   }
 
   const out = await merged.save();
-  return { blob: new Blob([out], { type: 'application/pdf' }), filename: 'merged.pdf' };
+  return { blob: new Blob([blobBytes(out)], { type: 'application/pdf' }), filename: 'merged.pdf' };
 }
 
 /** Combine several images into a single PDF, one image per page. */
@@ -41,7 +42,7 @@ export async function imagesToPdf(files: File[], onProgress?: ProgressFn): Promi
   }
 
   const out = await pdf.save();
-  return { blob: new Blob([out], { type: 'application/pdf' }), filename: 'combined.pdf' };
+  return { blob: new Blob([blobBytes(out)], { type: 'application/pdf' }), filename: 'combined.pdf' };
 }
 
 /** Merge several audio files into one MP3, in the order given. */
@@ -74,7 +75,7 @@ export async function mergeAudio(files: File[], onProgress?: ProgressFn): Promis
     const code = await ffmpeg.exec(args);
     if (code !== 0) throw new Error('Could not merge these audio files.');
     const data = (await ffmpeg.readFile('merged.mp3')) as Uint8Array;
-    const blob = new Blob([data], { type: 'audio/mpeg' });
+    const blob = new Blob([blobBytes(data)], { type: 'audio/mpeg' });
     try {
       for (const n of names) await ffmpeg.deleteFile(n);
       await ffmpeg.deleteFile('merged.mp3');

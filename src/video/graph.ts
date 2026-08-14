@@ -282,7 +282,7 @@ export function outputArgs(output: VideoOutput, hasAudio: boolean): string[] {
       if (hasAudio) a.push('-c:a', 'aac', '-b:a', output.audioBitrate ?? '160k');
       break;
   }
-  if (output.container === 'mp4' || output.container === 'mov') a.push('-movflags', '+faststart');
+  if (['mp4', 'm4v', 'mov'].includes(output.container)) a.push('-movflags', '+faststart');
   return a;
 }
 

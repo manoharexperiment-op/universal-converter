@@ -61,8 +61,13 @@ const CROP_PARAMS: ParamControl[] = [
       { value: '0.8', label: 'Portrait (4:5)' },
       { value: '1.3333', label: 'Classic (4:3)' },
       { value: '0.75', label: 'Upright (3:4)' },
+      { value: 'exact', label: 'An exact rectangle...' },
     ],
   },
+  { kind: 'number', key: 'cw', label: 'Width', default: 640, min: 2, max: 7680, step: 2, unit: 'px' },
+  { kind: 'number', key: 'ch', label: 'Height', default: 480, min: 2, max: 7680, step: 2, unit: 'px' },
+  { kind: 'number', key: 'cx', label: 'From the left', default: 0, min: 0, max: 7680, step: 2, unit: 'px' },
+  { kind: 'number', key: 'cy', label: 'From the top', default: 0, min: 0, max: 7680, step: 2, unit: 'px' },
 ];
 
 const RESIZE_PARAMS: ParamControl[] = [
@@ -123,6 +128,10 @@ const SUBTITLE_PARAMS: ParamControl[] = [
     kind: 'select', key: 'position', label: 'Position', default: 'bottom',
     options: [{ value: 'bottom', label: 'Bottom' }, { value: 'center', label: 'Middle' }, { value: 'top', label: 'Top' }],
   },
+  {
+    kind: 'select', key: 'align', label: 'Across', default: 'center',
+    options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }],
+  },
   { kind: 'text', key: 'color', label: 'Text colour', default: '#ffffff', placeholder: '#ffffff' },
   {
     kind: 'select', key: 'backdrop', label: 'Behind the text', default: 'outline',
@@ -147,6 +156,8 @@ const TEXT_PARAMS: ParamControl[] = [
   { kind: 'range', key: 'size', label: 'Size', default: 30, min: 8, max: 80, step: 2, unit: '% of width' },
   { kind: 'text', key: 'color', label: 'Colour', default: '#ffffff', placeholder: '#ffffff' },
   { kind: 'range', key: 'opacity', label: 'Opacity', default: 100, min: 20, max: 100, step: 5, unit: '%' },
+  { kind: 'text', key: 'from', label: 'Show from', default: '', placeholder: 'blank = the start' },
+  { kind: 'text', key: 'until', label: 'Show until', default: '', placeholder: 'blank = the end' },
   {
     kind: 'select', key: 'backdrop', label: 'Behind the text', default: 'outline',
     options: [
@@ -173,6 +184,32 @@ const COMPRESS_PARAMS: ParamControl[] = [
       { value: 'keep', label: 'Keep the original size' },
     ],
   },
+  // Everything below is ignored unless fine control is switched on, so the
+  // common case stays one choice and the knobs are there when they are wanted.
+  {
+    kind: 'select', key: 'advanced', label: 'Fine control', default: 'off',
+    options: [
+      { value: 'off', label: 'Off, use the level above' },
+      { value: 'on', label: 'Set these myself' },
+    ],
+  },
+  { kind: 'range', key: 'crf', label: 'Quality (CRF)', default: 28, min: 16, max: 40, step: 1, unit: 'lower is better' },
+  { kind: 'text', key: 'vbitrate', label: 'Video bitrate', default: '', placeholder: 'blank = quality-based, or e.g. 800k' },
+  {
+    kind: 'select', key: 'abitrate', label: 'Audio bitrate', default: '160k',
+    options: [
+      { value: '96k', label: '96 kbps' }, { value: '128k', label: '128 kbps' },
+      { value: '160k', label: '160 kbps' }, { value: '192k', label: '192 kbps' },
+    ],
+  },
+  {
+    kind: 'select', key: 'fps', label: 'Frame rate', default: '0',
+    options: [
+      { value: '0', label: 'Leave as it is' },
+      { value: '15', label: '15 per second' }, { value: '24', label: '24' },
+      { value: '30', label: '30' }, { value: '60', label: '60' },
+    ],
+  },
 ];
 
 /* -------------------------------- tools -------------------------------- */
@@ -186,6 +223,26 @@ export const VIDEO_TOOLS: TargetOption[] = [
     run: (f, p, pv) => run(f, [], mp4(Number(pv?.quality ?? 26)), p) },
   { target: 'webm', section: 'Convert', label: 'WebM', note: 'Open format, slower to encode',
     run: (f, p) => run(f, [], { container: 'webm', videoBitrate: '1M' }, p) },
+  // MOV, MKV, M4V and AVI all re-encode to H.264 and differ only in container,
+  // so they share one entry rather than four near-identical buttons.
+  { target: 'mov', section: 'Convert', label: 'Other formats',
+    note: 'MOV, MKV, M4V or AVI. Same H.264 video, different wrapper',
+    params: [
+      { kind: 'select', key: 'container', label: 'Format', default: 'mov',
+        options: [
+          { value: 'mov', label: 'MOV (Apple / QuickTime)' },
+          { value: 'mkv', label: 'MKV (Matroska)' },
+          { value: 'm4v', label: 'M4V (iTunes video)' },
+          { value: 'avi', label: 'AVI (older Windows)' },
+        ] },
+      { kind: 'select', key: 'quality', label: 'Quality', default: '26',
+        options: [{ value: '22', label: 'High' }, { value: '26', label: 'Normal' }, { value: '30', label: 'Small file' }] },
+    ],
+    run: (f, p, pv) => run(f, [], {
+      container: String(pv?.container ?? 'mov') as VideoOutput['container'],
+      crf: Number(pv?.quality ?? 26),
+      audioBitrate: '160k',
+    }, p) },
 
   // Edit
   { target: 'mp4', section: 'Edit', label: 'Trim', note: 'Keep only part of the clip', params: TRIM_PARAMS,
@@ -194,8 +251,17 @@ export const VIDEO_TOOLS: TargetOption[] = [
       const end = timecodeOr(pv?.end, null, 'the end');
       return run(f, [{ kind: 'trim', start, end: end ?? undefined }], mp4(), p);
     } },
-  { target: 'mp4', section: 'Edit', label: 'Crop', note: 'Cut to a shape without stretching', params: CROP_PARAMS,
-    run: (f, p, pv) => run(f, [{ kind: 'cropAspect', ratio: Number(pv?.ratio ?? 1) }], mp4(), p) },
+  { target: 'mp4', section: 'Edit', label: 'Crop', note: 'Cut to a shape, or to an exact rectangle', params: CROP_PARAMS,
+    run: (f, p, pv) => {
+      if (String(pv?.ratio) === 'exact') {
+        return run(f, [{
+          kind: 'crop',
+          x: Number(pv?.cx ?? 0), y: Number(pv?.cy ?? 0),
+          width: Number(pv?.cw ?? 640), height: Number(pv?.ch ?? 480),
+        }], mp4(), p);
+      }
+      return run(f, [{ kind: 'cropAspect', ratio: Number(pv?.ratio ?? 1) }], mp4(), p);
+    } },
   { target: 'mp4', section: 'Edit', label: 'Resize', note: 'Common sizes, or your own', params: RESIZE_PARAMS,
     run: (f, p, pv) => {
       const preset = String(pv?.preset ?? '1280x720');
@@ -226,10 +292,21 @@ export const VIDEO_TOOLS: TargetOption[] = [
       { kind: 'select', key: 'factor', label: 'Speed', default: '2',
         options: [
           { value: '0.25', label: 'Quarter speed' }, { value: '0.5', label: 'Half speed' }, { value: '0.75', label: '0.75x' },
+          { value: '1', label: 'Normal (1x, re-encode only)' },
           { value: '1.25', label: '1.25x' }, { value: '1.5', label: '1.5x' }, { value: '2', label: 'Double speed' }, { value: '4', label: '4x' },
+          { value: 'custom', label: 'Something else...' },
         ] },
+      { kind: 'number', key: 'custom', label: 'Custom speed', default: 3, min: 0.1, max: 10, step: 0.05, unit: 'x' },
     ],
-    run: (f, p, pv) => run(f, [{ kind: 'speed', factor: Number(pv?.factor ?? 2), keepPitch: false }], mp4(), p) },
+    run: (f, p, pv) => {
+      const raw = String(pv?.factor ?? '2');
+      const factor = raw === 'custom' ? Number(pv?.custom ?? 3) : Number(raw);
+      if (!Number.isFinite(factor) || factor <= 0) {
+        throw new VideoError('failed', 'Pick a speed above zero.');
+      }
+      // 1x is a no-op as a filter, so skip it and let the job just re-encode.
+      return run(f, factor === 1 ? [] : [{ kind: 'speed', factor, keepPitch: false }], mp4(), p);
+    } },
   { target: 'mp4', section: 'Edit', label: 'Reverse', note: 'Play backwards. Limited to a minute of video', params: [
       { kind: 'select', key: 'audio', label: 'The sound', default: 'reverse',
         options: [
@@ -281,10 +358,18 @@ export const VIDEO_TOOLS: TargetOption[] = [
   { target: 'mp4', section: 'Finish', label: 'Compress', note: 'Make the file smaller', params: COMPRESS_PARAMS,
     run: (f, p, pv) => {
       const level = String(pv?.level ?? 'balanced');
-      const crf = level === 'light' ? 24 : level === 'strong' ? 32 : 28;
+      const advanced = String(pv?.advanced) === 'on';
+      const crf = advanced ? Number(pv?.crf ?? 28) : level === 'light' ? 24 : level === 'strong' ? 32 : 28;
       const width = String(pv?.shrink) === 'keep' ? undefined : level === 'strong' ? 640 : level === 'balanced' ? 960 : 1280;
       const ops: VideoOp[] = width ? [{ kind: 'resize', width, fit: 'contain', allowUpscale: false }] : [];
-      return run(f, ops, mp4(crf), p);
+      const out: VideoOutput = { container: 'mp4', crf, audioBitrate: advanced ? String(pv?.abitrate ?? '160k') : '160k' };
+      if (advanced) {
+        const vb = String(pv?.vbitrate ?? '').trim();
+        if (vb) out.videoBitrate = vb;
+        const fps = Number(pv?.fps ?? 0);
+        if (fps > 0) out.fps = fps;
+      }
+      return run(f, ops, out, p);
     } },
   { target: 'mp4', section: 'Finish', batch: 'never', label: 'Subtitles', note: 'Burn an .srt or .vtt permanently into the picture', params: SUBTITLE_PARAMS,
     run: (f, p, pv) => {
@@ -299,6 +384,7 @@ export const VIDEO_TOOLS: TargetOption[] = [
           outline: backdrop === 'outline',
           background: backdrop === 'box',
           position: String(pv?.position ?? 'bottom') as 'top' | 'center' | 'bottom',
+          align: String(pv?.align ?? 'center') as 'left' | 'center' | 'right',
           marginPercent: 5,
         },
       }], mp4(), p);
@@ -317,6 +403,8 @@ export const VIDEO_TOOLS: TargetOption[] = [
         outline: backdrop === 'outline',
         background: backdrop === 'box',
         margin: 16,
+        start: timecodeOr(pv?.from, null, 'the start time') ?? undefined,
+        end: timecodeOr(pv?.until, null, 'the end time') ?? undefined,
       }], mp4(), p);
     } },
 
@@ -339,12 +427,16 @@ export const VIDEO_TOOLS: TargetOption[] = [
   { target: 'png', section: 'Utilities', batch: 'never', label: 'Grab a frame', note: 'Save one moment as a picture', params: [
       { kind: 'text', key: 'at', label: 'Moment', default: '0:01', placeholder: '0:05' },
       { kind: 'select', key: 'format', label: 'Save as', default: 'png',
-        options: [{ value: 'png', label: 'PNG (sharp)' }, { value: 'jpg', label: 'JPG (smaller)' }] },
+        options: [
+          { value: 'png', label: 'PNG (sharp)' },
+          { value: 'jpg', label: 'JPG (smaller)' },
+          { value: 'webp', label: 'WebP (smallest)' },
+        ] },
     ],
     run: async (f, p, pv) => {
       const { extractFrame } = await import('../video/frames');
       const at = timecodeOr(pv?.at, 1, 'the moment') ?? 1;
-      return extractFrame(f, at, String(pv?.format ?? 'png') as 'png' | 'jpg', p);
+      return extractFrame(f, at, String(pv?.format ?? 'png') as 'png' | 'jpg' | 'webp', p);
     } },
   { target: 'jpg', section: 'Utilities', batch: 'never', label: 'Thumbnail', note: 'Pick a representative frame automatically',
     run: async (f, p) => {

@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "build:app": "vite build --mode capacitor",
     "android": "npm run build:app && npx cap sync android && npx cap open android",
-    "electron:build": "npm run build:app && electron-builder --win"
+    "electron:build": "npm run build:app && electron-builder --win",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "build": {
     "appId": "com.munnx.convertor",
@@ -75,6 +77,7 @@
     "electron-builder": "^26.15.3",
     "typescript": "^5.6.3",
     "vite": "^5.4.10",
-    "vite-plugin-pwa": "^0.21.1"
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^2.1.9"
   }
 }

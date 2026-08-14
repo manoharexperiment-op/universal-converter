@@ -2,6 +2,7 @@ import type { ConversionResult, PagePlan, ParamValues, ProgressFn } from './type
 import { asPagePlan } from './types';
 import { addSuffix, replaceExt } from '../lib/strings';
 import { getInsert } from '../lib/insertStore';
+import { blobBytes } from '../lib/bytes';
 
 /** How many pages the document has, so the UI can build its initial plan. */
 export async function pdfPageCount(file: File): Promise<number> {
@@ -107,7 +108,7 @@ export async function organisePdf(
   if (rotated > 0) bits.push(`${rotated} rotated.`);
 
   return {
-    blob: new Blob([bytes], { type: 'application/pdf' }),
+    blob: new Blob([blobBytes(bytes)], { type: 'application/pdf' }),
     filename: addSuffix(replaceExt(file.name, 'pdf'), '-organised'),
     note: bits.join(' '),
   };

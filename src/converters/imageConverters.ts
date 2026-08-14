@@ -3,6 +3,7 @@ import type { BaseSession } from '@bunnio/rembg-web';
 import type { ConversionResult, ParamValues, ProgressFn } from './types';
 import { asPlacement } from './types';
 import { addSuffix, formatBytes, pctSmaller, replaceExt, stripExt } from '../lib/strings';
+import { blobBytes } from '../lib/bytes';
 
 const MIME: Record<string, string> = {
   png: 'image/png',
@@ -80,7 +81,7 @@ export async function imageToPdf(file: File): Promise<ConversionResult> {
 
   const bytes = await pdf.save();
   return {
-    blob: new Blob([bytes], { type: 'application/pdf' }),
+    blob: new Blob([blobBytes(bytes)], { type: 'application/pdf' }),
     filename: replaceExt(file.name, 'pdf'),
   };
 }

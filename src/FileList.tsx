@@ -1,4 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { QuickMeta } from './lib/videoMeta';
+import { formatDuration, readVideoMeta } from './lib/videoMeta';
 
 function formatSize(bytes: number): string {
   if (!bytes) return '0 B';
@@ -26,6 +28,34 @@ export function FileList({
 }) {
   const listRef = useRef<HTMLUListElement>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  // Poster, duration and resolution per file, so a merge list shows what is
+  // actually being joined rather than a column of identical names.
+  const [meta, setMeta] = useState<Record<string, QuickMeta>>({});
+
+  useEffect(() => {
+    let dead = false;
+    const videos = files.filter((f) => f.type.startsWith('video/') || /\.(mp4|mov|mkv|webm|avi|m4v)$/i.test(f.name));
+    (async () => {
+      for (const f of videos) {
+        const key = `${f.name}:${f.size}:${f.lastModified}`;
+        if (meta[key]) continue;
+        const m = await readVideoMeta(f);
+        if (dead) return;
+        setMeta((prev) => ({ ...prev, [key]: m }));
+      }
+    })();
+    return () => {
+      dead = true;
+    };
+    // Keyed on the file identities, not the meta map it writes into.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files]);
+
+  const totalSeconds = files.reduce((sum, f) => {
+    const m = meta[`${f.name}:${f.size}:${f.lastModified}`];
+    return sum + (m?.durationSeconds ?? 0);
+  }, 0);
+  const anyDuration = totalSeconds > 0;
 
   const move = (from: number, to: number) => {
     if (to < 0 || to >= files.length || from === to) return;
@@ -87,9 +117,21 @@ export function FileList({
             </span>
           )}
           {ordered && <span className="fl-num">{i + 1}</span>}
+          {(() => {
+            const m = meta[`${f.name}:${f.size}:${f.lastModified}`];
+            return m?.poster ? <img className="fl-poster" src={m.poster} alt="" /> : null;
+          })()}
           <span className="fl-meta">
             <span className="fl-name">{f.name}</span>
-            <span className="fl-size">{formatSize(f.size)}</span>
+            <span className="fl-size">
+              {(() => {
+                const m = meta[`${f.name}:${f.size}:${f.lastModified}`];
+                const bits = [formatSize(f.size)];
+                if (m?.durationSeconds) bits.push(formatDuration(m.durationSeconds));
+                if (m?.width && m?.height) bits.push(`${m.width}x${m.height}`);
+                return bits.join('  ·  ');
+              })()}
+            </span>
           </span>
           {ordered && (
             <>
@@ -100,6 +142,11 @@ export function FileList({
           <button type="button" className="fl-btn fl-del" onClick={() => remove(i)} aria-label={`Remove ${f.name}`}>✕</button>
         </li>
       ))}
+      {ordered && anyDuration && (
+        <li className="fl-total">
+          {files.length} videos, about {formatDuration(totalSeconds)} in total
+        </li>
+      )}
     </ul>
   );
 }

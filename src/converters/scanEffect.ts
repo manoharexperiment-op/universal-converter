@@ -1,5 +1,6 @@
 import type { ConversionResult, ParamControl, ParamValues, ProgressFn } from './types';
 import { addSuffix, replaceExt } from '../lib/strings';
+import { blobBytes } from '../lib/bytes';
 
 /**
  * Make a clean digital document look like it came off a flatbed scanner.
@@ -204,7 +205,7 @@ export async function scanPdf(
 
   const bytes = await out.save();
   return {
-    blob: new Blob([bytes], { type: 'application/pdf' }),
+    blob: new Blob([blobBytes(bytes)], { type: 'application/pdf' }),
     filename: addSuffix(replaceExt(file.name, 'pdf'), '-scanned'),
     note:
       `${doc.numPages} page${doc.numPages === 1 ? '' : 's'} made to look scanned. ` +

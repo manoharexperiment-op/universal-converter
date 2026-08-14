@@ -563,9 +563,13 @@ export default function App() {
         label: opt.label,
         note: opt.note,
         icon: ICONS[opt.target] ?? '📁',
+        params: opt.params,
         media: opt.media,
         group: 'combine' as const,
-        run: (p?: ProgressFn) => opt.run(files, p),
+        // Combine actions take settings too (merge output size, frame rate,
+        // quality), so the collected values have to be passed through rather
+        // than dropped the way they were when merging had none.
+        run: (p?: ProgressFn, pv?: ParamValues) => opt.run(files, p, pv),
       }));
 
       return [...combine, ...each];

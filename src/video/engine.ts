@@ -6,6 +6,7 @@ import { buildGraph, cornerExpr, escapeFilterValue, outputArgs } from './graph';
 import { assertUsable, probe } from './probe';
 import { ensureFontsFor } from './fonts';
 import { addSuffix, replaceExt } from '../lib/strings';
+import { blobBytes } from '../lib/bytes';
 
 /**
  * Runs video jobs.
@@ -20,7 +21,7 @@ export const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 export const MAX_REVERSE_SECONDS = 60;
 
 const MIME: Record<string, string> = {
-  mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+  mp4: 'video/mp4', m4v: 'video/x-m4v', webm: 'video/webm', mov: 'video/quicktime',
   mkv: 'video/x-matroska', avi: 'video/x-msvideo', gif: 'image/gif',
 };
 
@@ -255,10 +256,13 @@ export async function runJob(
       }
       const st = subOp.style;
       // This build numbers alignment the legacy SSA way, not ASS v4+: 1-3 sit at
-      // the bottom, 5-7 at the top and 9-11 in the middle. Verified by rendering
-      // every value and measuring where the text landed. The v4+ reading (top=8,
+      // the bottom, 5-7 at the top and 9-11 in the middle, and within each band
+      // the three values run left, centre, right. Verified by rendering every
+      // value and measuring where the text landed. The v4+ reading (top=8,
       // middle=5) puts top and centre in each other's places.
-      const alignment = st.position === 'top' ? 6 : st.position === 'center' ? 10 : 2;
+      const band = st.position === 'top' ? 5 : st.position === 'center' ? 9 : 1;
+      const across = st.align === 'left' ? 0 : st.align === 'right' ? 2 : 1;
+      const alignment = band + across;
       const fontSize = Math.max(8, Math.round((frameH * st.fontSizePercent) / 100));
       const style = [
         `FontName=${choice.family}`,
@@ -352,7 +356,7 @@ export async function runJob(
     }
 
     return {
-      blob: new Blob([data], { type: MIME[job.output.container] ?? 'video/mp4' }),
+      blob: new Blob([blobBytes(data)], { type: MIME[job.output.container] ?? 'video/mp4' }),
       filename: outputName(job.input.name, job.ops, job.output),
       note: notes.join(' ') || undefined,
     };

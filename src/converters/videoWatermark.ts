@@ -1,5 +1,6 @@
 import type { ConversionResult, ParamControl, ParamValues, ProgressFn } from './types';
 import { addSuffix, replaceExt } from '../lib/strings';
+import { blobBytes } from '../lib/bytes';
 
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 
@@ -256,7 +257,7 @@ export async function watermarkVideo(
     if (code !== 0) throw new Error('Could not watermark this video (unsupported codec or corrupt file).');
 
     const data = (await ffmpeg.readFile(output)) as Uint8Array;
-    const blob = new Blob([data], { type: 'video/mp4' });
+    const blob = new Blob([blobBytes(data)], { type: 'video/mp4' });
     try {
       await ffmpeg.deleteFile(input);
       await ffmpeg.deleteFile('wm-stamp.png');

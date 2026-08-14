@@ -4,6 +4,7 @@ import { asPlacement } from './types';
 import { addSuffix } from '../lib/strings';
 import type { TextStamp } from './pdfStamp';
 import { makeTextStamp, placeOnPage, visibleSize } from './pdfStamp';
+import { blobBytes } from '../lib/bytes';
 
 const COLORS: Record<string, [number, number, number]> = {
   black: [0, 0, 0],
@@ -155,7 +156,7 @@ export async function addTextToPdf(file: File, onProgress?: ProgressFn, params?:
   onProgress?.(1);
   const raster = stamps.some((s) => s.rasterized);
   return {
-    blob: new Blob([out], { type: 'application/pdf' }),
+    blob: new Blob([blobBytes(out)], { type: 'application/pdf' }),
     filename: addSuffix(file.name, '-text'),
     note: `Added text to page ${pageNo} at ${Math.round(size)} pt.${raster ? ' Non-Latin characters were drawn as an image, so that text will not be selectable or searchable.' : ''}`,
   };
@@ -394,7 +395,7 @@ export async function fillPdfForm(file: File, onProgress?: ProgressFn, params?: 
   onProgress?.(1);
 
   return {
-    blob: new Blob([bytes], { type: 'application/pdf' }),
+    blob: new Blob([blobBytes(bytes)], { type: 'application/pdf' }),
     filename: addSuffix(file.name, '-filled'),
     note: notes.join(' '),
     view: filled.length ? { kind: 'fields', groups: [{ title: 'Form fields', rows: filled }] } : undefined,

@@ -2,6 +2,7 @@ import type { ConversionResult, ParamValues, ProgressFn } from './types';
 import { asPlacement } from './types';
 import { addSuffix, formatBytes, pctSmaller, replaceExt, stripExt } from '../lib/strings';
 import { makeTextStamp, placeOnPage, visibleSize } from './pdfStamp';
+import { blobBytes } from '../lib/bytes';
 
 type ImgTarget = 'png' | 'jpg';
 
@@ -178,7 +179,7 @@ export async function compressPdf(
     };
   }
   return {
-    blob: new Blob([compressed], { type: 'application/pdf' }),
+    blob: new Blob([blobBytes(compressed)], { type: 'application/pdf' }),
     filename: addSuffix(file.name, '-compressed'),
     note: `Compressed ${formatBytes(original.byteLength)} → ${formatBytes(compressed.byteLength)} (${pctSmaller(original.byteLength, compressed.byteLength)}% smaller). Pages were flattened to images, so text is no longer selectable.`,
   };
@@ -194,7 +195,7 @@ export async function pdfRotate(file: File, deg: number): Promise<ConversionResu
   }
   const out = await src.save();
   return {
-    blob: new Blob([out], { type: 'application/pdf' }),
+    blob: new Blob([blobBytes(out)], { type: 'application/pdf' }),
     filename: `${stripExt(file.name)}_rotated.pdf`,
   };
 }
@@ -261,7 +262,7 @@ export async function protectPdf(
   ]);
   if (!out) throw new Error('Could not protect this PDF, it may already be encrypted.');
   return {
-    blob: new Blob([out], { type: 'application/pdf' }),
+    blob: new Blob([blobBytes(out)], { type: 'application/pdf' }),
     filename: addSuffix(file.name, '-protected'),
     note: 'Protected with AES-256. Keep the password safe, it cannot be recovered.',
   };
@@ -300,7 +301,7 @@ export async function removePdfPassword(
     throw new Error('This PDF is not password-protected, so there is nothing to unlock.');
   }
   return {
-    blob: new Blob([out], { type: 'application/pdf' }),
+    blob: new Blob([blobBytes(out)], { type: 'application/pdf' }),
     filename: addSuffix(file.name, '-unlocked'),
   };
 }
@@ -348,7 +349,7 @@ export async function removePdfWatermark(file: File): Promise<ConversionResult> 
   }
   const out = await doc.save();
   return {
-    blob: new Blob([out], { type: 'application/pdf' }),
+    blob: new Blob([blobBytes(out)], { type: 'application/pdf' }),
     filename: addSuffix(file.name, '-no-watermark'),
     note: `Removed ${removed} watermark layer${removed === 1 ? '' : 's'}.`,
   };
@@ -396,7 +397,7 @@ export async function signPdf(
   }
 
   const out = await doc.save();
-  return { blob: new Blob([out], { type: 'application/pdf' }), filename: addSuffix(file.name, '-signed') };
+  return { blob: new Blob([blobBytes(out)], { type: 'application/pdf' }), filename: addSuffix(file.name, '-signed') };
 }
 
 /** Stamp a text watermark across every page of a PDF (pdf-lib). */
@@ -438,7 +439,7 @@ export async function watermarkPdf(
 
   const out = await doc.save();
   return {
-    blob: new Blob([out], { type: 'application/pdf' }),
+    blob: new Blob([blobBytes(out)], { type: 'application/pdf' }),
     filename: addSuffix(file.name, '-watermarked'),
   };
 }

@@ -1,5 +1,6 @@
 import type { ConversionResult, ParamValues, ProgressFn } from './types';
 import { replaceExt } from '../lib/strings';
+import { blobBytes } from '../lib/bytes';
 
 // Single-threaded ffmpeg core (@ffmpeg/core 0.12.6, ESM build), SELF-HOSTED in
 // /public/ffmpeg, no CDN, so video/audio work fully offline. Single-threaded =
@@ -104,7 +105,7 @@ async function run(
     if (code !== 0) throw new Error('ffmpeg could not process this file (unsupported codec or corrupt input).');
 
     const data = (await ffmpeg.readFile(output)) as Uint8Array;
-    const blob = new Blob([data], { type: job.mime });
+    const blob = new Blob([blobBytes(data)], { type: job.mime });
     try {
       await ffmpeg.deleteFile(input);
       await ffmpeg.deleteFile(output);
@@ -190,7 +191,7 @@ export async function videoToGif(file: File, onProgress?: ProgressFn, params?: P
     if (code !== 0) throw new Error('Could not convert this video to GIF.');
 
     const data = (await ffmpeg.readFile('out.gif')) as Uint8Array;
-    const blob = new Blob([data], { type: 'image/gif' });
+    const blob = new Blob([blobBytes(data)], { type: 'image/gif' });
     try {
       await ffmpeg.deleteFile(input);
       await ffmpeg.deleteFile('palette.png');

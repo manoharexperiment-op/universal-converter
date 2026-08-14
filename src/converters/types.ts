@@ -173,6 +173,8 @@ export interface MergeOption {
   note?: string;
   /** ffmpeg-backed, so it can be cancelled mid-run. */
   media?: boolean;
+  /** Controls shown when this combine action is selected. */
+  params?: ParamControl[];
   run: MergeFn;
 }
 

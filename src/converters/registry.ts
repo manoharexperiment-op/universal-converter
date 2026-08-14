@@ -259,12 +259,48 @@ export const MERGE_REGISTRY: Record<string, MergeOption[]> = {
   video: [{
     target: 'mp4', label: 'Join into one video', media: true,
     note: 'Plays end to end, in the order shown above. Different sizes and frame rates are matched up first.',
-    run: async (files, onProgress) => {
+    params: [
+      {
+        kind: 'select', key: 'size', label: 'Output size', default: 'auto',
+        options: [
+          { value: 'auto', label: 'Match the largest clip' },
+          { value: '1920x1080', label: 'Full HD  1920 x 1080' },
+          { value: '1280x720', label: 'HD  1280 x 720' },
+          { value: '1080x1920', label: 'Upright  1080 x 1920' },
+          { value: '1080x1080', label: 'Square  1080 x 1080' },
+          { value: '854x480', label: 'Small  854 x 480' },
+        ],
+      },
+      {
+        kind: 'select', key: 'fps', label: 'Frame rate', default: '0',
+        options: [
+          { value: '0', label: 'Match the fastest clip' },
+          { value: '24', label: '24 per second' }, { value: '30', label: '30' }, { value: '60', label: '60' },
+        ],
+      },
+      {
+        kind: 'select', key: 'quality', label: 'Quality', default: '26',
+        options: [{ value: '22', label: 'High' }, { value: '26', label: 'Normal' }, { value: '30', label: 'Small file' }],
+      },
+    ],
+    run: async (files, onProgress, params) => {
       const { mergeVideos } = await import('../video/merge');
       const { getVideoInfo } = await import('../video/engine');
       const sources = [];
       for (const file of files) sources.push({ file, info: await getVideoInfo(file) });
-      return mergeVideos(sources, { output: { container: 'mp4', crf: 26, audioBitrate: '160k' } }, onProgress);
+      const size = String(params?.size ?? 'auto');
+      const [w, h] = size === 'auto' ? [undefined, undefined] : size.split('x').map(Number);
+      const fps = Number(params?.fps ?? 0);
+      return mergeVideos(
+        sources,
+        {
+          width: w,
+          height: h,
+          fps: fps > 0 ? fps : undefined,
+          output: { container: 'mp4', crf: Number(params?.quality ?? 26), audioBitrate: '160k' },
+        },
+        onProgress,
+      );
     },
   }],
 };

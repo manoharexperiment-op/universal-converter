@@ -3,12 +3,13 @@ import { VideoError, describeFailure } from './types';
 import { probe } from './probe';
 import { addSuffix, replaceExt } from '../lib/strings';
 import { assertSize } from './engine';
+import { blobBytes } from '../lib/bytes';
 
 /** Save a single moment from a video as a still image. */
 export async function extractFrame(
   file: File,
   atSeconds: number,
-  format: 'png' | 'jpg',
+  format: 'png' | 'jpg' | 'webp',
   onProgress?: ProgressFn,
 ): Promise<ConversionResult> {
   assertSize(file);
@@ -40,6 +41,9 @@ export async function extractFrame(
     // -ss before -i seeks quickly; a single frame is all that gets decoded.
     const args = ['-hide_banner', '-ss', String(Math.max(0, atSeconds)), '-i', inPath, '-frames:v', '1'];
     if (format === 'jpg') args.push('-q:v', '3');
+    // libwebp is in this build; without naming it explicitly ffmpeg picks the
+    // muxer from the extension and can land on an animated-webp encoder.
+    if (format === 'webp') args.push('-c:v', 'libwebp', '-lossless', '0', '-quality', '82');
     args.push('-y', outPath);
 
     const code = await ffmpeg.exec(args);
@@ -50,7 +54,9 @@ export async function extractFrame(
     }
     onProgress?.(1);
     return {
-      blob: new Blob([data], { type: format === 'png' ? 'image/png' : 'image/jpeg' }),
+      blob: new Blob([blobBytes(data)], {
+        type: format === 'png' ? 'image/png' : format === 'webp' ? 'image/webp' : 'image/jpeg',
+      }),
       filename: addSuffix(replaceExt(file.name, format), `-frame`),
       note: `Frame taken at ${Math.round(atSeconds)}s, ${info.width} x ${info.height}.`,
     };
@@ -107,7 +113,7 @@ export async function generateThumbnail(file: File, onProgress?: ProgressFn): Pr
     if (!data || data.length === 0) throw new VideoError('failed', 'No thumbnail could be taken from this video.');
     onProgress?.(1);
     return {
-      blob: new Blob([data], { type: 'image/jpeg' }),
+      blob: new Blob([blobBytes(data)], { type: 'image/jpeg' }),
       filename: addSuffix(replaceExt(file.name, 'jpg'), '-thumbnail'),
       note: `Chosen automatically from the clip, ${info.width} x ${info.height}.`,
     };
