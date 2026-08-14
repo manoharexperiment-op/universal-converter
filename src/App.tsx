@@ -96,6 +96,7 @@ const TOOL_GROUPS: { title: string; tools: Tool[] }[] = [
     tools: [
       { icon: '📍', title: 'Hidden data', desc: 'See where a photo was taken', tint: 'red' },
       { icon: '🛡️', title: 'Strip data', desc: 'Remove it with no quality loss', tint: 'green' },
+      { icon: '🖨️', title: 'Looks scanned', desc: 'Make a PDF or photo look scanned', tint: 'amber' },
     ],
   },
   {

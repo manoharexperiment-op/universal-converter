@@ -13,6 +13,7 @@ import { addTextControls } from './pdfTextTools';
 import { watermarkVideo, VIDEO_WATERMARK_PARAMS } from './videoWatermark';
 import { organisePdf } from './pdfPages';
 import { VIDEO_TOOLS } from './videoTools';
+import { scanImage, scanPdf, SCAN_PARAMS } from './scanEffect';
 
 /** The organiser builds its own plan from the file, so the default is empty. */
 const ORGANISE_PARAMS: ParamControl[] = [
@@ -201,6 +202,7 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'txt', label: 'Text (OCR)', note: 'Reads text out of the image on-device', run: (f, p) => img.imageToText(f, p) },
     { target: 'txt', label: 'Read QR', note: 'Finds a QR code in the picture and reads it out', run: (f, p) => qr.readQrCode(f, p) },
     { target: 'txt', batch: 'never', label: 'View metadata', note: 'See what is hidden inside the photo, including GPS location', run: (f) => exif.viewImageMetadata(f) },
+    { target: 'jpg', label: 'Make it look scanned', note: 'Tilt, grain and paper tone, as if run through a scanner', params: SCAN_PARAMS, run: (f, p, pv) => scanImage(f, p, pv) },
     { target: 'jpg', label: 'Strip metadata', note: 'Removes GPS, camera and date without touching the picture quality', run: (f) => exif.stripImageMetadata(f) },
   ],
   pdf: [
@@ -210,6 +212,7 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'docx', label: 'Word', note: 'Rebuilds headings and paragraphs; falls back to OCR for scans', run: (f, p) => office.pdfToDocxRich(f, p) },
     { target: 'xlsx', label: 'Excel', note: 'Ruled tables become rows and columns; otherwise one row per line', run: (f, p) => office.pdfToXlsx(f, p) },
     { target: 'pdf', label: 'Rotate 90°', note: 'Rotates every page 90° clockwise', run: (f) => pdf.pdfRotate(f, 90) },
+    { target: 'pdf', label: 'Make it look scanned', note: 'Every page tilted and grained, as if run through a scanner', params: SCAN_PARAMS, run: (f, p, pv) => scanPdf(f, p, pv) },
     { target: 'pdf', batch: 'never', label: 'Organise pages', note: 'Delete, reorder or rotate single pages, and insert other files anywhere', params: ORGANISE_PARAMS, run: (f, p, pv) => organisePdf(f, p, pv) },
     { target: 'zip', batch: 'never', label: 'Split pages', note: 'Each page as its own PDF (zipped)', run: (f, p) => pdf.pdfSplit(f, p) },
     { target: 'pdf', label: 'Compress', note: 'Best for scanned/image PDFs — flattens pages to images, so text is no longer selectable', params: [LEVEL_PARAM], run: (f, p, pv) => pdf.compressPdf(f, p, pv) },
