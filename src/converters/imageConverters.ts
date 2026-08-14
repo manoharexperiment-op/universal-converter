@@ -347,6 +347,19 @@ function getRembgSession(base: string): Promise<BaseSession> {
       // offline with no CDN and no duplicate copy.
       const ort = await import('onnxruntime-web');
       ort.env.wasm.numThreads = 1;
+
+      // Tell ORT exactly where its wasm lives instead of letting it derive the
+      // path itself. Left alone it asks for /node_modules/.vite/deps/ort-wasm-
+      // simd-threaded.wasm, which the dev server answers with the SPA fallback:
+      // an HTML page served as the wasm, so instantiation dies on
+      // "expected magic word 00 61 73 6d, found 3c 21 64 6f" ("<!do").
+      // The ?url import resolves through Vite in both modes, to the real file in
+      // dev and to the emitted hashed asset in a build, and points at the same
+      // source either way so no second copy is bundled.
+      const { default: wasmUrl } = await import(
+        'onnxruntime-web/ort-wasm-simd-threaded.wasm?url'
+      );
+      ort.env.wasm.wasmPaths = { wasm: wasmUrl };
       const { newSession, rembgConfig } = await import('@bunnio/rembg-web');
       rembgConfig.setCustomModelPath('u2netp', `${base}/models/u2netp.onnx`);
       return newSession('u2netp');
