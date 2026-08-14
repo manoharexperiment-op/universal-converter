@@ -31,7 +31,7 @@ export async function pdfToImages(
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     // intent: 'print' makes pdf.js render synchronously instead of yielding via
-    // requestAnimationFrame — so it also completes in background/hidden tabs
+    // requestAnimationFrame, so it also completes in background/hidden tabs
     // (rAF is throttled/paused there) and in headless environments.
     await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
 
@@ -76,7 +76,7 @@ export async function pdfToText(file: File, onProgress?: ProgressFn): Promise<Co
 
 /**
  * PDF -> Word (.docx), text-level. Reconstructs lines from the text layer and
- * writes them as paragraphs. Complex layouts/tables/images are flattened — this
+ * writes them as paragraphs. Complex layouts/tables/images are flattened, this
  * is the intentional fidelity tradeoff for staying 100% in-browser.
  */
 export async function pdfToDocx(file: File, onProgress?: ProgressFn): Promise<ConversionResult> {
@@ -132,7 +132,7 @@ export async function compressPdf(
   try {
     pdf = await pdfjsLib.getDocument({ data: original.slice() }).promise;
   } catch {
-    throw new Error('Could not read this PDF — it may be password-protected.');
+    throw new Error('Could not read this PDF, it may be password-protected.');
   }
 
   const out = await PDFDocument.create();
@@ -174,7 +174,7 @@ export async function compressPdf(
     return {
       blob: file,
       filename: file.name,
-      note: `Already efficient (mostly text/vector) — kept your original ${formatBytes(original.byteLength)} unchanged. Flattening it would have made it larger.`,
+      note: `Already efficient (mostly text/vector), kept your original ${formatBytes(original.byteLength)} unchanged. Flattening it would have made it larger.`,
     };
   }
   return {
@@ -221,7 +221,7 @@ export async function pdfSplit(file: File, onProgress?: ProgressFn): Promise<Con
 /**
  * Run qpdf (compiled to WASM) over a single input → "/out.pdf". The .wasm is
  * self-hosted in /public (absolute URL via origin) so it also works inside the
- * native app. A fresh instance per call — Emscripten's runtime can't re-run main.
+ * native app. A fresh instance per call, Emscripten's runtime can't re-run main.
  */
 async function runQpdf(input: ArrayBuffer, args: string[]): Promise<{ out: Uint8Array | null; err: string }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -237,7 +237,7 @@ async function runQpdf(input: ArrayBuffer, args: string[]): Promise<{ out: Uint8
   try {
     qpdf.callMain(args);
   } catch {
-    /* qpdf may exit() on error — output presence is the real signal */
+    /* qpdf may exit() on error, output presence is the real signal */
   }
   let out: Uint8Array | null = null;
   try {
@@ -259,12 +259,23 @@ export async function protectPdf(
   const { out } = await runQpdf(await file.arrayBuffer(), [
     '--encrypt', password, password, '256', '--', '/in.pdf', '/out.pdf',
   ]);
-  if (!out) throw new Error('Could not protect this PDF — it may already be encrypted.');
+  if (!out) throw new Error('Could not protect this PDF, it may already be encrypted.');
   return {
     blob: new Blob([out], { type: 'application/pdf' }),
     filename: addSuffix(file.name, '-protected'),
-    note: 'Protected with AES-256. Keep the password safe — it cannot be recovered.',
+    note: 'Protected with AES-256. Keep the password safe, it cannot be recovered.',
   };
+}
+
+/**
+ * Does this PDF carry an encryption dictionary?
+ *
+ * Only the trailer at the end of the file is scanned: /Encrypt lives there, and
+ * the token could otherwise appear inside a content stream on any ordinary page.
+ */
+function isEncrypted(bytes: ArrayBuffer): boolean {
+  const tail = new Uint8Array(bytes, Math.max(0, bytes.byteLength - 4096));
+  return /\/Encrypt\b/.test(new TextDecoder('latin1').decode(tail));
 }
 
 /** Remove a password from a PDF you can open (qpdf --decrypt). */
@@ -274,12 +285,19 @@ export async function removePdfPassword(
   params?: ParamValues,
 ): Promise<ConversionResult> {
   const password = String(params?.password ?? '');
-  const { out, err } = await runQpdf(await file.arrayBuffer(), [
+  const bytes = await file.arrayBuffer();
+  const { out, err } = await runQpdf(bytes, [
     `--password=${password}`, '--decrypt', '/in.pdf', '/out.pdf',
   ]);
   if (!out) {
-    if (/password|invalid|incorrect/i.test(err)) throw new Error('Wrong password for this PDF.');
-    throw new Error("Could not unlock — is this PDF actually password-protected?");
+    // qpdf's wording for a bad password varies by build, and this one says
+    // nothing matchable, so decide from the file itself: an encrypted PDF
+    // carries /Encrypt in its trailer. That tells the two cases apart properly
+    // instead of blaming the file when the password was simply wrong.
+    if (isEncrypted(bytes) || /password|invalid|incorrect|decrypt/i.test(err)) {
+      throw new Error('That password did not work. Check it and try again.');
+    }
+    throw new Error('This PDF is not password-protected, so there is nothing to unlock.');
   }
   return {
     blob: new Blob([out], { type: 'application/pdf' }),
@@ -290,7 +308,7 @@ export async function removePdfPassword(
 /**
  * Remove watermarks that exist as separate /Watermark annotations (a "layer").
  * Watermarks drawn directly into a page's content stream (the common case) can't
- * be stripped cleanly — for those we return the original with a clear note.
+ * be stripped cleanly, for those we return the original with a clear note.
  */
 export async function removePdfWatermark(file: File): Promise<ConversionResult> {
   const { PDFDocument, PDFName, PDFArray, PDFDict } = await import('pdf-lib');
@@ -309,7 +327,7 @@ export async function removePdfWatermark(file: File): Promise<ConversionResult> 
         const dict = page.node.context.lookup(ref, PDFDict);
         subtype = dict.get(PDFName.of('Subtype'))?.toString() ?? '';
       } catch {
-        /* unreadable annotation — keep it */
+        /* unreadable annotation, keep it */
       }
       if (subtype === '/Watermark') removed++;
       else keep.push(ref);
@@ -325,7 +343,7 @@ export async function removePdfWatermark(file: File): Promise<ConversionResult> 
     return {
       blob: file,
       filename: file.name,
-      note: "No removable watermark layer found. This only removes watermarks added as a separate layer/annotation — if it's drawn into the page itself (the most common case), it can't be stripped cleanly.",
+      note: "No removable watermark layer found. This only removes watermarks added as a separate layer/annotation, if it's drawn into the page itself (the most common case), it can't be stripped cleanly.",
     };
   }
   const out = await doc.save();

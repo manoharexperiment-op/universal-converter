@@ -27,7 +27,7 @@ import {
 } from './lib/download';
 import './App.css';
 
-/** A lazy-loaded chunk failed to load — usually a stale build after a redeploy. */
+/** A lazy-loaded chunk failed to load, usually a stale build after a redeploy. */
 function isStaleChunkError(msg: string): boolean {
   return /dynamically imported module|module script failed/i.test(msg);
 }
@@ -127,7 +127,7 @@ interface Action {
   note?: string;
   icon: string;
   params?: ParamControl[];
-  /** ffmpeg-backed (video/audio) — can be cancelled mid-run. */
+  /** ffmpeg-backed (video/audio), can be cancelled mid-run. */
   media?: boolean;
   /** Which heading this sits under when several files are dropped. */
   group?: 'each' | 'combine';
@@ -502,7 +502,7 @@ export default function App() {
       setFiles(accepted.slice(0, MAX_BATCH_FILES));
       setNotice(
         accepted.length > MAX_BATCH_FILES
-          ? `Taking the first ${MAX_BATCH_FILES} files — that's the most we process at once.`
+          ? `Taking the first ${MAX_BATCH_FILES} files, that's the most we process at once.`
           : '',
       );
       setSelectedKey(null);
@@ -737,7 +737,7 @@ export default function App() {
       <header className="header">
         <img className="logo" src="/logo.png" alt="MunnX" />
         <p className="brand-sub">Convertor</p>
-        <p className="tagline">Convert PDF, Word, Excel, images, audio &amp; video — right on your device.</p>
+        <p className="tagline">Convert PDF, Word, Excel, images, audio &amp; video, right on your device.</p>
         <ul className="badges">
           <li>🔒 Private</li>
           <li>💯 Free</li>
@@ -890,7 +890,7 @@ export default function App() {
         {unsupported && (
           <div className="message error">
             {multiple
-              ? 'Drop files of the same kind together — all PDFs, all images, or all audio. Mixed types can’t be combined or batch-converted.'
+              ? 'Drop files of the same kind together, all PDFs, all images, or all audio. Mixed types can’t be combined or batch-converted.'
               : <>Sorry, <strong>.{extOf(files[0].name)}</strong> files aren&apos;t supported yet.</>}
           </div>
         )}
@@ -919,7 +919,7 @@ export default function App() {
               />
             </div>
             {selected?.media && (
-              <p className="status">{status || 'Encoding in your browser — this can take a while…'}</p>
+              <p className="status">{status || 'Encoding in your browser, this can take a while…'}</p>
             )}
           </>
         )}
@@ -1043,7 +1043,7 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        🔒 100% in your browser. Your files never leave your device — nothing is uploaded.
+        🔒 100% in your browser. Your files never leave your device, nothing is uploaded.
       </footer>
     </div>
   );

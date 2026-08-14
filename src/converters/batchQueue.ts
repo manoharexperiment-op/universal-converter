@@ -216,7 +216,7 @@ export class BatchQueue {
     if (failed.length) {
       zip.file(
         '_SKIPPED-FILES.txt',
-        [`${failed.length} file(s) could not be processed:`, '', ...failed.map((f) => `${f.file.name} — ${f.error}`)].join('\n'),
+        [`${failed.length} file(s) could not be processed:`, '', ...failed.map((f) => `${f.file.name}, ${f.error}`)].join('\n'),
       );
     }
     const blob = await zip.generateAsync({ type: 'blob' });

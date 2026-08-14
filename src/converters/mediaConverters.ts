@@ -2,7 +2,7 @@ import type { ConversionResult, ParamValues, ProgressFn } from './types';
 import { replaceExt } from '../lib/strings';
 
 // Single-threaded ffmpeg core (@ffmpeg/core 0.12.6, ESM build), SELF-HOSTED in
-// /public/ffmpeg — no CDN, so video/audio work fully offline. Single-threaded =
+// /public/ffmpeg, no CDN, so video/audio work fully offline. Single-threaded =
 // no SharedArrayBuffer, so no COOP/COEP needed (OCR keeps working). The class
 // worker is a module worker that imports the core via dynamic import().
 
@@ -13,7 +13,7 @@ const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 let ffmpegPromise: Promise<import('@ffmpeg/ffmpeg').FFmpeg> | null = null;
 
 // Optional human-readable status (e.g. "Processing… 00:00:03.2") parsed from
-// ffmpeg's logs — useful when the % progress is unreliable (two-pass GIF, etc.).
+// ffmpeg's logs, useful when the % progress is unreliable (two-pass GIF, etc.).
 let statusListener: ((status: string) => void) | null = null;
 export function onFFmpegStatus(cb: ((status: string) => void) | null) {
   statusListener = cb;
@@ -36,7 +36,7 @@ async function getFFmpeg() {
         coreURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.js`, 'text/javascript'),
         wasmURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.wasm`, 'application/wasm'),
       });
-      // ffmpeg prints "... time=00:00:03.20 ..." as it works — surface it.
+      // ffmpeg prints "... time=00:00:03.20 ..." as it works, surface it.
       ffmpeg.on('log', ({ message }) => {
         if (!statusListener) return;
         const m = /time=\s*([0-9:.]+)/.exec(message);
@@ -72,7 +72,7 @@ export async function terminateFFmpeg() {
 function assertSize(file: File, max: number) {
   if (file.size > max) {
     throw new Error(
-      `This file is ${Math.round(file.size / 1048576)} MB — too large to process in the browser ` +
+      `This file is ${Math.round(file.size / 1048576)} MB, too large to process in the browser ` +
         `(limit ~${Math.round(max / 1048576)} MB). Try a shorter or smaller clip.`,
     );
   }
@@ -204,7 +204,7 @@ export async function videoToGif(file: File, onProgress?: ProgressFn, params?: P
   }
 }
 
-/** Convert a video to WebM (VP8 + Vorbis — far faster than VP9 in wasm). */
+/** Convert a video to WebM (VP8 + Vorbis, far faster than VP9 in wasm). */
 export function videoToWebm(file: File, onProgress?: ProgressFn, params?: ParamValues) {
   assertSize(file, MAX_VIDEO_BYTES);
   const maxW = Number(params?.maxWidth ?? 1280);

@@ -161,9 +161,9 @@ const COMPRESS_PARAMS: ParamControl[] = [
   {
     kind: 'select', key: 'level', label: 'How much', default: 'balanced',
     options: [
-      { value: 'light', label: 'Light — keep the quality' },
+      { value: 'light', label: 'Light, keep the quality' },
       { value: 'balanced', label: 'Balanced' },
-      { value: 'strong', label: 'Strong — smallest file' },
+      { value: 'strong', label: 'Strong, smallest file' },
     ],
   },
   {

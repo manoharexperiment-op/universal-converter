@@ -14,7 +14,7 @@ export function parsePageRanges(input: string, pageCount: number): number[] {
     if (!part) continue;
 
     // "5-" means 5 to the end, "-5" means the start to 5.
-    const m = /^(\d*)\s*[-–—]\s*(\d*)$/.exec(part);
+    const m = /^(\d*)\s*[-–, ]\s*(\d*)$/.exec(part);
     if (m) {
       const [, a, b] = m;
       if (!a && !b) continue;

@@ -31,7 +31,7 @@ export async function imagesToPdf(files: File[], onProgress?: ProgressFn): Promi
     } else if (f.type === 'image/jpeg') {
       embedded = await pdf.embedJpg(new Uint8Array(await f.arrayBuffer()));
     } else {
-      // pdf-lib only embeds PNG/JPEG — normalize webp/bmp/gif to PNG first.
+      // pdf-lib only embeds PNG/JPEG, normalize webp/bmp/gif to PNG first.
       const png = await convertImageFormat(f, 'png');
       embedded = await pdf.embedPng(new Uint8Array(await png.blob.arrayBuffer()));
     }
@@ -56,7 +56,7 @@ export async function mergeAudio(files: File[], onProgress?: ProgressFn): Promis
     names.push(name);
   }
 
-  // Normalize every input to a common rate/layout, then concat — this survives
+  // Normalize every input to a common rate/layout, then concat, this survives
   // mixed codecs/sample-rates (stream-copy concat would corrupt those).
   const norm = names.map((_, k) => `[${k}:a]aresample=44100,aformat=channel_layouts=stereo[a${k}]`).join(';');
   const concatIn = names.map((_, k) => `[a${k}]`).join('');

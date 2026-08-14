@@ -67,7 +67,7 @@ export async function runBatch(
         break;
       }
     } catch (e) {
-      failures.push(`${files[i].name} — ${e instanceof Error ? e.message : 'failed'}`);
+      failures.push(`${files[i].name}, ${e instanceof Error ? e.message : 'failed'}`);
     }
     onProgress?.((i + 1) / files.length);
   }

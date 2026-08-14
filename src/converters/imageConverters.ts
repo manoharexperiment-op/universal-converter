@@ -47,7 +47,7 @@ export async function convertImageFormat(file: File, target: string): Promise<Co
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas is not available in this browser.');
 
-  // JPEG has no alpha channel — flatten transparency onto white first.
+  // JPEG has no alpha channel, flatten transparency onto white first.
   if (target === 'jpg' || target === 'jpeg') {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -70,7 +70,7 @@ export async function imageToPdf(file: File): Promise<ConversionResult> {
   } else if (file.type === 'image/jpeg') {
     embedded = await pdf.embedJpg(new Uint8Array(await file.arrayBuffer()));
   } else {
-    // pdf-lib only embeds PNG/JPEG — normalize anything else (webp/bmp/gif) to PNG.
+    // pdf-lib only embeds PNG/JPEG, normalize anything else (webp/bmp/gif) to PNG.
     const png = await convertImageFormat(file, 'png');
     embedded = await pdf.embedPng(new Uint8Array(await png.blob.arrayBuffer()));
   }
@@ -136,7 +136,7 @@ export async function compressImage(
     return {
       blob: file,
       filename: file.name,
-      note: `Already optimized — kept your original (${formatBytes(file.size)}). Re-compressing wouldn't shrink it.`,
+      note: `Already optimized, kept your original (${formatBytes(file.size)}). Re-compressing wouldn't shrink it.`,
     };
   }
   return {
@@ -329,7 +329,7 @@ export async function signPhoto(
  *
  * Uses the MIT-licensed rembg-web + onnxruntime-web with the small u2netp model.
  * EVERYTHING is self-hosted: the model (/models/u2netp.onnx) and the ONNX-runtime
- * wasm (/ort/), and ORT is forced to single-threaded — so it needs no CDN, works
+ * wasm (/ort/), and ORT is forced to single-threaded, so it needs no CDN, works
  * fully offline, and runs inside the Android WebView without SharedArrayBuffer /
  * COOP-COEP (the thing that broke the previous CDN-based library).
  */
@@ -367,7 +367,7 @@ export async function removeImageBackground(
   // Configure the shared onnxruntime-web instance BEFORE rembg creates a session.
   // Force single-threaded so it runs in the WebView without SharedArrayBuffer /
   // COOP-COEP. The wasm itself is bundled by Vite (its URL resolves via
-  // import.meta.url to a same-origin asset) — so it's offline with no CDN and
+  // import.meta.url to a same-origin asset), so it's offline with no CDN and
   // no duplicate copy.
   const { remove } = await import('@bunnio/rembg-web');
   const session = await getRembgSession(base);
@@ -381,7 +381,7 @@ export async function removeImageBackground(
   return {
     blob,
     filename: addSuffix(replaceExt(file.name, 'png'), '-nobg'),
-    note: 'Background removed on-device — saved as a transparent PNG.',
+    note: 'Background removed on-device, saved as a transparent PNG.',
   };
 }
 

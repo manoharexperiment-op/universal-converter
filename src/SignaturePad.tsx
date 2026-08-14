@@ -3,7 +3,7 @@ import { useRef } from 'react';
 /**
  * A small canvas where the user draws a signature with mouse/touch, or uploads
  * an image. Emits the result as a transparent PNG data URL (black strokes) via
- * onChange — empty string when cleared.
+ * onChange, empty string when cleared.
  */
 export function SignaturePad({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);

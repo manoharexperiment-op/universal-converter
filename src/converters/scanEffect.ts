@@ -15,9 +15,9 @@ export const SCAN_PARAMS: ParamControl[] = [
   {
     kind: 'select', key: 'level', label: 'How rough', default: 'medium',
     options: [
-      { value: 'light', label: 'Light — a good office scanner' },
-      { value: 'medium', label: 'Medium — an everyday scan' },
-      { value: 'heavy', label: 'Heavy — an old or tired machine' },
+      { value: 'light', label: 'Light, a good office scanner' },
+      { value: 'medium', label: 'Medium, an everyday scan' },
+      { value: 'heavy', label: 'Heavy, an old or tired machine' },
     ],
   },
   {

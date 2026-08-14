@@ -13,7 +13,7 @@ export function isAndroidApp(): boolean {
 /**
  * WEB: trigger a normal browser download (blob URL + a hidden <a download>).
  * The blob lives only in memory and is released right after the click.
- * (On native an <a download> click does nothing — use saveToDevice/shareFile.)
+ * (On native an <a download> click does nothing, use saveToDevice/shareFile.)
  */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -52,7 +52,7 @@ export async function saveToDevice(blob: Blob, filename: string): Promise<SaveOu
       await deleteCached(path);
       return 'downloads';
     } catch {
-      // Android 9-, or the save failed for some reason — fall back to sharing.
+      // Android 9-, or the save failed for some reason, fall back to sharing.
     }
   }
 
@@ -106,14 +106,14 @@ export function isShareDismissal(message: string): boolean {
 
 // Write in 3 MiB slices. Capacitor's writeFile/appendFile are base64-only on
 // native, so the whole file would otherwise become ONE ~1.33x-size base64
-// string in the WebView heap (and a JS string is UTF-16, so ~2.66x the bytes) —
+// string in the WebView heap (and a JS string is UTF-16, so ~2.66x the bytes),
 // a 150 MB video would balloon past 500 MB and OOM-crash the app even with
 // largeHeap. Chunking caps the peak base64 string at ~4 MB no matter the size.
 //
 // The chunk size MUST be a multiple of 3 bytes: base64 encodes 3 bytes -> 4
 // chars with NO padding, so concatenating per-chunk base64 is byte-exact. A
 // non-multiple-of-3 chunk would emit '=' padding mid-stream and corrupt the file.
-const CHUNK_BYTES = 3 * 1024 * 1024; // 3,145,728 — divisible by 3
+const CHUNK_BYTES = 3 * 1024 * 1024; // 3,145,728, divisible by 3
 
 /** Write the blob into the app cache dir (chunked) and return its file:// URI. */
 async function writeToCache(blob: Blob, name: string): Promise<{ uri: string; path: string }> {

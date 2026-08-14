@@ -14,7 +14,7 @@ void purgeExportCache();
 // the WebView. A SW registered by an older PWA-enabled build keeps serving a
 // cached index.html that bypasses Capacitor's native-bridge injection, which
 // makes isNativePlatform() false and breaks native file saving. The native
-// build ships no SW, but an SW from a previous install survives an app update —
+// build ships no SW, but an SW from a previous install survives an app update,
 // so unregister any that exist and drop their caches.
 if (Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((regs) => {
@@ -32,11 +32,11 @@ if (Capacitor.isNativePlatform() && 'serviceWorker' in navigator) {
 // Self-heal stale deploys: a lazy-loaded chunk (every converter dynamically
 // imports its library) can 404 after a redeploy, because the browser/service-
 // worker cache still points at an old hashed filename that no longer exists on
-// the server — the "Failed to fetch dynamically imported module" error. Reload
+// the server, the "Failed to fetch dynamically imported module" error. Reload
 // once to pick up the current build. The sessionStorage guard prevents a loop.
 window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault();
-  // Reload at most once per 15 s — prevents an infinite loop if a chunk is
+  // Reload at most once per 15 s, prevents an infinite loop if a chunk is
   // genuinely missing, but still self-heals on any later redeploy.
   const last = Number(sessionStorage.getItem('chunkReloadAt') || 0);
   if (Date.now() - last < 15000) return;
