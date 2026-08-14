@@ -1580,3 +1580,108 @@
   color: var(--text-3);
   white-space: pre-wrap;
 }
+
+/* ---------- Multi-step editor ---------- */
+.pipe-empty {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+.pipe-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pipe-step {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  overflow: hidden;
+}
+.pipe-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+}
+.pipe-num {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+.pipe-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+.pipe-summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.72rem;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pipe-actions {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+.pipe-actions button {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: none;
+  color: var(--text-3);
+  font-size: 0.72rem;
+  cursor: pointer;
+  padding: 0;
+}
+.pipe-actions button:hover:not(:disabled) {
+  border-color: var(--blue-bright);
+  color: var(--text);
+}
+.pipe-actions button:disabled { opacity: 0.25; cursor: default; }
+.pipe-actions .pipe-del:hover { border-color: #f87171; color: #f87171; }
+.pipe-body { padding: 4px 10px 10px; }
+.pipe-body .params {
+  margin-top: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.pipe-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pipe-add select {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.pipe-add select:hover { border-color: var(--blue-bright); color: var(--text); }
+.pipe-count { font-size: 0.72rem; color: var(--text-3); }

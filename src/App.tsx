@@ -7,6 +7,8 @@ import { onFFmpegStatus, terminateFFmpeg } from './converters/mediaConverters';
 import { SignaturePad } from './SignaturePad';
 import { PlacementPad } from './PlacementPad';
 import { PageOrganiser } from './PageOrganiser';
+import { PipelineEditor } from './PipelineEditor';
+import { asPipeline } from './converters/videoPipeline';
 import { FileList } from './FileList';
 import { UnitConverter } from './tools/UnitConverter';
 import { QrMaker } from './tools/QrMaker';
@@ -350,6 +352,20 @@ function ActionParams({
             <div className="param-row param-full" key={c.key}>
               <span className="param-label">{c.label}</span>
               <SignaturePad value={String(v)} onChange={(val) => onChange(c.key, val)} />
+            </div>
+          );
+        }
+        if (c.kind === 'pipeline') {
+          return (
+            <div className="param-row param-full" key={c.key}>
+              <span className="param-label">{c.label}</span>
+              <PipelineEditor
+                value={asPipeline(v)}
+                onChange={(pl) => onChange(c.key, pl)}
+                renderControls={(params, vals, set) => (
+                  <ActionParams params={params} values={vals} onChange={set} file={file} />
+                )}
+              />
             </div>
           );
         }

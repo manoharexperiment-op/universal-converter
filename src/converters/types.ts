@@ -77,7 +77,7 @@ export function asPagePlan(v: ParamValue | undefined): PagePlan {
   return isPagePlan(v) ? v : { pages: [] };
 }
 
-export type ParamValue = string | number | Placement | PagePlan | File | null;
+export type ParamValue = string | number | Placement | PagePlan | File | null | { steps: unknown[] };
 
 /** Values collected from an action's parameter controls, keyed by control key. */
 export type ParamValues = Record<string, ParamValue>;
@@ -111,6 +111,8 @@ export type ParamControl =
   /** Pick a whole file (audio track, subtitle file). Value is the File itself. */
   | { kind: 'file'; key: string; label: string; default: null; accept: string; hint?: string }
   | { kind: 'pages'; key: string; label: string; default: PagePlan }
+  /** A chain of edits applied in one pass. Value is a Pipeline. */
+  | { kind: 'pipeline'; key: string; label: string; default: { steps: [] } }
   | {
       kind: 'placement';
       key: string;

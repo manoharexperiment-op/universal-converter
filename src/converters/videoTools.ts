@@ -4,6 +4,7 @@ import type { VideoOp, VideoOutput } from '../video/types';
 import { VideoError } from '../video/types';
 import { formatTimecode, parseTimecode } from '../video/probe';
 import { addSuffix, replaceExt } from '../lib/strings';
+import { asPipeline, stepsToOps } from './videoPipeline';
 
 /**
  * The registry's view of the video engine.
@@ -318,6 +319,21 @@ export const VIDEO_TOOLS: TargetOption[] = [
         margin: 16,
       }], mp4(), p);
     } },
+
+  {
+    target: 'mp4', section: 'Edit', batch: 'never', label: 'Several edits at once',
+    note: 'Stack up trims, crops, text and more. They all run in one pass',
+    params: [
+      { kind: 'pipeline', key: 'chain', label: 'Steps', default: { steps: [] } },
+      { kind: 'select', key: 'quality', label: 'Final quality', default: '26',
+        options: [{ value: '22', label: 'High' }, { value: '26', label: 'Normal' }, { value: '30', label: 'Small file' }] },
+    ],
+    run: (f, p, pv) => {
+      const chain = asPipeline(pv?.chain);
+      if (!chain.steps.length) throw new VideoError('failed', 'Add at least one step first.');
+      return run(f, stepsToOps(chain), mp4(Number(pv?.quality ?? 26)), p);
+    },
+  },
 
   // Utilities
   { target: 'png', section: 'Utilities', batch: 'never', label: 'Grab a frame', note: 'Save one moment as a picture', params: [

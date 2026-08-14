@@ -191,12 +191,17 @@ export async function runJob(
     }
 
     const args: string[] = ['-hide_banner'];
+    // Both seek flags go BEFORE -i, so they bound how much source is read.
+    // Putting -t after -i makes it an output-duration cap instead, which breaks
+    // any trim combined with a speed change: the sped-up stream is shorter than
+    // the cap, and ffmpeg holds the output open to the full trimmed length.
+    // Verified: trim 1-5s plus 2x speed gives 4s with -t after -i, 2s before it.
     if (graph.seek?.start) args.push('-ss', String(graph.seek.start));
-    args.push('-i', inPath);
     if (graph.seek?.end !== undefined) {
       const dur = graph.seek.end - (graph.seek.start ?? 0);
       args.push('-t', String(dur));
     }
+    args.push('-i', inPath);
 
     // Extra inputs: watermark images, replacement audio, rendered text.
     let inputIndex = 1;
