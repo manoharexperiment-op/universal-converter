@@ -41,58 +41,25 @@ export default defineConfig(({ mode }) => {
                 icons: [{ src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any' }],
               },
               workbox: {
-                // Precache the app shell + all code chunks so the app works offline after
-                // the first visit. EXCLUDE the big self-hosted OCR assets — they'd bloat
-                // the install; they're runtime-cached on first OCR use instead.
-                globPatterns: ['**/*.{js,mjs,css,html,svg,ico,woff2,wasm}'],
-                // Keep big engines OUT of the precache (they'd blow the size limit and
-                // fail `vite build`). They're runtime-cached on first use instead.
-                globIgnores: ['**/tesseract/**', '**/ort-wasm-simd-threaded*.wasm', '**/ffmpeg/**', '**/fonts/**'],
-                maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
-                navigateFallback: '/index.html',
-                runtimeCaching: [
-                  {
-                    // Subtitle fonts: only fetched when someone burns subtitles.
-                    urlPattern: ({ url }) => url.pathname.startsWith('/fonts/'),
-                    handler: 'CacheFirst',
-                    options: {
-                      cacheName: 'subtitle-fonts',
-                      expiration: { maxEntries: 12, maxAgeSeconds: 60 * 60 * 24 * 365 },
-                    },
-                  },
-                  {
-                    // Self-hosted Tesseract worker/core/traineddata → cache on first OCR.
-                    urlPattern: ({ url }) => url.pathname.startsWith('/tesseract/'),
-                    handler: 'CacheFirst',
-                    options: {
-                      cacheName: 'tesseract-assets',
-                      expiration: { maxEntries: 12, maxAgeSeconds: 60 * 60 * 24 * 90 },
-                      cacheableResponse: { statuses: [0, 200] },
-                    },
-                  },
-                  {
-                    // Self-hosted ffmpeg core (too big to precache) → cache on first
-                    // video/audio use so web works offline afterwards.
-                    urlPattern: ({ url }) => url.pathname.startsWith('/ffmpeg/'),
-                    handler: 'CacheFirst',
-                    options: {
-                      cacheName: 'ffmpeg-core',
-                      expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 90 },
-                      cacheableResponse: { statuses: [0, 200] },
-                    },
-                  },
-                  {
-                    // Background-removal model + onnxruntime wasm (too big to precache) →
-                    // cache on first use so web works offline afterwards.
-                    urlPattern: ({ url }) => url.pathname.startsWith('/models/') || /ort-wasm.*\.wasm$/.test(url.pathname),
-                    handler: 'CacheFirst',
-                    options: {
-                      cacheName: 'bg-remove-assets',
-                      expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 90 },
-                      cacheableResponse: { statuses: [0, 200] },
-                    },
-                  },
+                // Precache EVERYTHING, so the website works fully offline from the
+                // first visit rather than needing each feature used once online.
+                // That means the engines too: ffmpeg, the OCR data, the
+                // background-removal model and runtime, and the subtitle fonts.
+                globPatterns: [
+                  '**/*.{js,mjs,css,html,svg,ico,png,webmanifest,woff2,wasm,ttf,onnx,gz,traineddata}',
                 ],
+                // Nothing is excluded. The cost is a large first visit; the benefit
+                // is that going offline afterwards never finds a missing engine.
+                globIgnores: [],
+                // ffmpeg-core.wasm alone is ~31 MB. vite-plugin-pwa does not warn
+                // when an asset exceeds this, it FAILS the build outright, which is
+                // how the live site once sat several releases behind unnoticed.
+                // Keep this comfortably above the largest asset.
+                maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
+                navigateFallback: '/index.html',
+                // No runtimeCaching for these paths on purpose. An asset that is
+                // both precached and runtime-cached is stored twice, which would
+                // put ~150 MB in the origin's quota instead of ~75 MB.
               },
               devOptions: { enabled: false },
             }),
