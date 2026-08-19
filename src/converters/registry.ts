@@ -216,6 +216,7 @@ export const REGISTRY: Record<string, TargetOption[]> = {
     { target: 'pdf', batch: 'never', label: 'Organise pages', note: 'Delete, reorder or rotate single pages, and insert other files anywhere', params: ORGANISE_PARAMS, run: (f, p, pv) => organisePdf(f, p, pv) },
     { target: 'zip', batch: 'never', label: 'Split pages', note: 'Each page as its own PDF (zipped)', run: (f, p) => pdf.pdfSplit(f, p) },
     { target: 'pdf', label: 'Compress', note: 'Best for scanned/image PDFs, flattens pages to images, so text is no longer selectable', params: [LEVEL_PARAM], run: (f, p, pv) => pdf.compressPdf(f, p, pv) },
+    { target: 'pdf', label: 'Flatten', note: 'Turns every page into a single picture, so images, text or edits you added cannot be selected or removed by anyone with an editor', run: (f, p) => pdf.flattenPdf(f, p) },
     { target: 'pdf', label: 'Watermark', note: 'Stamp your text on every page', params: WATERMARK_PARAMS, run: (f, p, pv) => pdf.watermarkPdf(f, p, pv) },
     { target: 'pdf', label: 'Protect', note: 'Add a password (AES-256). It cannot be recovered if forgotten.', params: PROTECT_PARAMS, run: (f, p, pv) => pdf.protectPdf(f, p, pv) },
     { target: 'pdf', label: 'Unlock', note: 'Remove a password you already know', params: UNLOCK_PARAMS, run: (f, p, pv) => pdf.removePdfPassword(f, p, pv) },

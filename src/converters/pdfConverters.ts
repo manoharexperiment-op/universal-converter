@@ -185,6 +185,70 @@ export async function compressPdf(
   };
 }
 
+/**
+ * Rasterize every page into a fresh PDF so nothing on it, an image you added,
+ * a form field, an annotation, is a separate object a PDF editor can select
+ * and pull out. Each page becomes one picture instead.
+ *
+ * Unlike Compress, this always returns the flattened result even when it
+ * comes out bigger: the point here is locking the page down, not shrinking
+ * it, so there is no size guard to silently hand back the original.
+ */
+export async function flattenPdf(file: File, onProgress?: ProgressFn): Promise<ConversionResult> {
+  const FLATTEN_DPI = 200;
+  const FLATTEN_QUALITY = 0.95;
+  const original = new Uint8Array(await file.arrayBuffer());
+
+  const pdfjsLib = (await import('../lib/pdfjs')).default;
+  const { PDFDocument } = await import('pdf-lib');
+
+  let pdf;
+  try {
+    pdf = await pdfjsLib.getDocument({ data: original.slice() }).promise;
+  } catch {
+    throw new Error('Could not read this PDF, it may be password-protected.');
+  }
+
+  const out = await PDFDocument.create();
+  const MAX_DIM = 4096;
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const base = page.getViewport({ scale: 1 }); // points
+    const scale = Math.min(FLATTEN_DPI / 72, MAX_DIM / base.width, MAX_DIM / base.height);
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('Canvas is not available in this browser.');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport, intent: 'print' }).promise;
+
+    const jpgBlob = await new Promise<Blob>((res, rej) =>
+      canvas.toBlob((b) => (b ? res(b) : rej(new Error('Page encode failed.'))), 'image/jpeg', FLATTEN_QUALITY),
+    );
+    const jpg = await out.embedJpg(new Uint8Array(await jpgBlob.arrayBuffer()));
+    // Output page keeps the ORIGINAL physical size (points), not pixels.
+    const p = out.addPage([base.width, base.height]);
+    p.drawImage(jpg, { x: 0, y: 0, width: base.width, height: base.height });
+
+    canvas.width = 0; // release the backing store immediately
+    canvas.height = 0;
+    try { await page.cleanup(); } catch { /* non-fatal */ }
+    onProgress?.(i / pdf.numPages);
+  }
+
+  const flattened = await out.save();
+  return {
+    blob: new Blob([blobBytes(flattened)], { type: 'application/pdf' }),
+    filename: addSuffix(file.name, '-flattened'),
+    note: `Every page is now one flat picture (${formatBytes(original.byteLength)} to ${formatBytes(flattened.byteLength)}). Nothing on it, including anything you added, can be selected, edited or pulled out by whoever you share it with.`,
+  };
+}
+
 /** Rotate every page of a PDF clockwise by `deg` degrees (90 / 180 / 270). */
 export async function pdfRotate(file: File, deg: number): Promise<ConversionResult> {
   const { PDFDocument, degrees } = await import('pdf-lib');
